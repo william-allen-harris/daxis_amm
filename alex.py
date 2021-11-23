@@ -87,9 +87,13 @@ def poolGet(qtyGet):
     poolFrame.columns = ['token0Symbol','token1Symbol','token0ID','token1ID', 'poolID']
     print(poolFrame)
 
-tokenGet(100)
-#poolGet(10)
+#Try these out
+#tokenGet(5)
+#poolGet(5)
 
+
+
+#just notes below, no functionality
 
 #{pool(id: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640") {token0 {id symbol}token1 {id symbol}}}
 
