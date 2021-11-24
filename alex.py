@@ -1,7 +1,7 @@
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 import pandas as pd
-pd.set_option('display.max_rows', None)
+#pd.set_option('display.max_rows', None)
 
 
 client = Client(
@@ -9,6 +9,9 @@ client = Client(
             url='https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
             verify=True,
             retries=5))
+poolIDs = []
+global ohlcFrame
+global ticksFrame
 
 def tokenGet(qtyGet):
     '''Get quantity of tokens ordered by volumeUSD and store the ID's
@@ -48,7 +51,6 @@ def tokenGet(qtyGet):
 
     tokenFrame = pd.DataFrame(infoList)
     tokenFrame.columns = ['Name','ID','Symbol','Decimals']
-    print(tokenFrame)
 
 def poolGet(qtyGet):
     strGet = '{pools(first: '+str(qtyGet)+', orderBy:volumeUSD, orderDirection:desc) {id}}'
@@ -77,16 +79,14 @@ def poolGet(qtyGet):
 
     poolFrame = pd.DataFrame(poolList)
     poolFrame.columns = ['token0Symbol','token1Symbol','token0ID','token1ID', 'poolID']
-    print(poolFrame)
 
-def poolGetSymbol(token0symbol, token1symbol):
+def poolGetID(token0symbol, token1symbol):
     token0Get = '{tokens(where:{symbol:"'+token0symbol+'"}){id}}'
     token1Get = '{tokens(where:{symbol:"'+token1symbol+'"}){id}}'
     token0Info = client.execute(gql(token0Get))
     token1Info = client.execute(gql(token1Get))
     token0IDs = []
     token1IDs = []
-    poolIDs = []
     finalList = []
 
     for i in range(0, len(token0Info['tokens'])):
@@ -113,7 +113,6 @@ def poolGetSymbol(token0symbol, token1symbol):
                 for i in range(0, len(infoSwap['pools'])):
                     poolIDs.append(infoSwap['pools'][i]['id'])
             
-    
     for i in poolIDs:
         poolStr = '{pool(id: "'+i+'"){token0{id symbol} token1{id symbol}}}'
         poolInfo = client.execute(gql(poolStr))
@@ -129,7 +128,6 @@ def poolGetSymbol(token0symbol, token1symbol):
 
     poolsFrame = pd.DataFrame(finalList)
     poolsFrame.columns = ['token0Symbol','token1Symbol','token0ID','token1ID', 'poolID']
-    print(poolsFrame)
 
 #from what i can gather, first: is max 1000, and skip: is max 5000, so from my understanding you can get max 6000 entries
 #may be able to sort, as lots of ticks are just 0,0 for liqG and liqN so filter the 0 entries to the bottom idk
@@ -150,8 +148,7 @@ def poolGetTicks(poolID):
         if skip == 5000:
             ticksFrame = pd.DataFrame(finalList)
             ticksFrame.columns = ['liquidityGross', 'liquidityNet', 'tickIdx']
-            print(ticksFrame)
-            return
+            return ticksFrame
         else:
             skip +=1000
 
@@ -174,20 +171,41 @@ def poolGetOHLC(poolID):
         if skip == 5000:
             ohlcFrame = pd.DataFrame(finalList)
             ohlcFrame.columns = ['Close', 'High', 'Low', 'Open', 'psUnix']
-            print(ohlcFrame)
-            return
+            return ohlcFrame
         else:
             skip +=1000
 
+#this is getting a bit insane
+#for the example DAI/ETH, there are 5 pools
+#poolGetFrames will return the finalFrame DataFrame with 5 tuples
+#each touple is one of the 5 DAI/ETH pools
+#row 1:pool ID
+#row 2:The DataFrame for that pool's ticks
+#row 3:The DataFrame for that pool's OHLC
+def poolGetFrames(token0symbol, token1symbol):
+    poolGetID(token0symbol, token1symbol)
+    ticksResults = []
+    ohlcResults = []
+    finalList = []
+    for i in range(0, len(poolIDs)):
+        ticksResults = poolGetTicks(poolIDs[i])
+        ohlcResults = poolGetOHLC(poolIDs[i])
+        tempList = [poolIDs[i], ticksResults, ohlcResults]
+        finalList.append(tempList)
+    finalFrame = pd.DataFrame(finalList)
+    finalFrame.columns = ['poolID', 'ticks', 'ohlc']
+    print(finalFrame)
+    return finalFrame
 
 #Try these out
 #if you want to generate new pool IDs for Ticks and OHLC, run poolGet() to get the top volume pools, 
 #or poolGetSymbol() to search for a pool ID by symbol still need to copy and paste the poolID from the printed DataFrame
 #tokenGet(5)
 #poolGet(10)
-#poolGetSymbol('DAI', 'WETH')
+#poolGetID('DAI', 'WETH')
 #poolGetTicks('0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640')
-#poolGetOHLC('0xcbcdf9626bc03e24f779434178a73a0b4bad62ed')
+#poolGetOHLC('0x4585fe77225b41b697c938b018e2ac67ac5a20c0')
+poolGetFrames('DAI', 'WETH')
 
 '''poolGet(10) poolIDs for reference
 0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8
