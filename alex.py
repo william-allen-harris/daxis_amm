@@ -1,7 +1,7 @@
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 import pandas as pd
-#pd.set_option('display.max_rows', None)
+pd.set_option('display.max_rows', None)
 
 
 client = Client(
@@ -79,6 +79,7 @@ def poolGet(qtyGet):
 
     poolFrame = pd.DataFrame(poolList)
     poolFrame.columns = ['token0Symbol','token1Symbol','token0ID','token1ID', 'poolID']
+    return idList
 
 def poolGetID(token0symbol, token1symbol):
     token0Get = '{tokens(where:{symbol:"'+token0symbol+'"}){id}}'
@@ -197,15 +198,44 @@ def poolGetFrames(token0symbol, token1symbol):
     print(finalFrame)
     return finalFrame
 
+#make the same Dataframe of dataframes as above, but on the top pools ordered by volumeUSD
+#this is VERY slow, use big numbers at your own risk :O
+def topFrames(qtyGet):
+    strGet = '{pools(first: '+str(qtyGet)+', orderBy:volumeUSD, orderDirection:desc) {id token0{symbol} token1{symbol}}}'
+    idGet = client.execute(gql(strGet))
+    poolIDs = []
+    ticksResults = []
+    ohlcResults = []
+    finalList = []
+    token0Symbol = []
+    token1Symbol = []
+
+    for i in range(0, qtyGet):
+        poolIDs.append(idGet['pools'][i]['id'])
+        token0Symbol.append(idGet['pools'][i]['token0']['symbol'])
+        token1Symbol.append(idGet['pools'][i]['token1']['symbol'])
+
+    for i in range(0, len(poolIDs)):
+        ticksResults = poolGetTicks(poolIDs[i])
+        ohlcResults = poolGetOHLC(poolIDs[i])
+        tempList = [poolIDs[i], token0Symbol[i], token1Symbol[i], ticksResults, ohlcResults]
+        finalList.append(tempList)
+        
+    topFrames = pd.DataFrame(finalList)
+    topFrames.columns = ['poolID', '0Symbol' , '1Symbol', 'ticks', 'ohlc']
+    print(topFrames)
+    return topFrames  
+
+    
 #Try these out
-#if you want to generate new pool IDs for Ticks and OHLC, run poolGet() to get the top volume pools, 
-#or poolGetSymbol() to search for a pool ID by symbol still need to copy and paste the poolID from the printed DataFrame
 #tokenGet(5)
 #poolGet(10)
 #poolGetID('DAI', 'WETH')
 #poolGetTicks('0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640')
 #poolGetOHLC('0x4585fe77225b41b697c938b018e2ac67ac5a20c0')
-poolGetFrames('DAI', 'WETH')
+#poolGetFrames('DAI', 'WETH')
+topFrames(5)
+
 
 '''poolGet(10) poolIDs for reference
 0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8
