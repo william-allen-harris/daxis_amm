@@ -103,6 +103,9 @@ def poolGetSymbol(token0symbol, token1symbol):
 
     for i in range(0, len(token1Info['tokens'])):
         token1IDs.append(token1Info['tokens'][i]['id'])
+   
+    if len(token0IDs) < len(token1IDs):
+        token0IDs, token1IDs = token1IDs, token0IDs
 
     for i in token0IDs:
         for x in token1IDs:
@@ -118,6 +121,7 @@ def poolGetSymbol(token0symbol, token1symbol):
             if len(infoSwap['pools']) > 0:
                 for i in range(0, len(infoSwap['pools'])):
                     poolIDs.append(infoSwap['pools'][i]['id'])
+            
     
     for i in poolIDs:
         poolStr = '{pool(id: "'+i+'"){token0{id symbol} token1{id symbol}}}'
@@ -147,8 +151,9 @@ def poolGetSymbol(token0symbol, token1symbol):
 
 #Try these out
 #tokenGet(5)
-#poolGet(2)
-poolGetSymbol('USDC', 'WETH')
+#poolGet(10)
+poolGetSymbol('DAI', 'WETH')
+poolGetSymbol('WETH', 'DAI')
 
 
 
