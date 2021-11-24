@@ -87,9 +87,68 @@ def poolGet(qtyGet):
     poolFrame.columns = ['token0Symbol','token1Symbol','token0ID','token1ID', 'poolID']
     print(poolFrame)
 
+
+def poolGetSymbol(token0symbol, token1symbol):
+    token0Get = '{tokens(where:{symbol:"'+token0symbol+'"}){id}}'
+    token1Get = '{tokens(where:{symbol:"'+token1symbol+'"}){id}}'
+    token0Info = client.execute(gql(token0Get))
+    token1Info = client.execute(gql(token1Get))
+    token0IDs = []
+    token1IDs = []
+    poolIDs = []
+    finalList = []
+
+    for i in range(0, len(token0Info['tokens'])):
+        token0IDs.append(token0Info['tokens'][i]['id'])
+
+    for i in range(0, len(token1Info['tokens'])):
+        token1IDs.append(token1Info['tokens'][i]['id'])
+
+    for i in token0IDs:
+        for x in token1IDs:
+            strInfo = '{pools(where: {token0: "'+i+'" token1: "'+x+'"}){id}}'
+            swapInfo = '{pools(where: {token0: "'+x+'" token1: "'+i+'"}){id}}'
+            info = client.execute(gql(strInfo))
+            infoSwap = client.execute(gql(swapInfo))
+
+            if len(info['pools']) > 0:
+                for i in range(0, len(info['pools'])):
+                    poolIDs.append(info['pools'][i]['id'])
+
+            if len(infoSwap['pools']) > 0:
+                for i in range(0, len(infoSwap['pools'])):
+                    poolIDs.append(infoSwap['pools'][i]['id'])
+    
+    for i in poolIDs:
+        poolStr = '{pool(id: "'+i+'"){token0{id symbol} token1{id symbol}}}'
+        poolInfo = client.execute(gql(poolStr))
+        
+        poolid = i
+        token0id = poolInfo['pool']['token0']['id']
+        token0symbol = poolInfo['pool']['token0']['symbol']
+        token1id = poolInfo['pool']['token1']['id']
+        token1symbol = poolInfo['pool']['token1']['symbol']
+        tempList = [token0symbol, token1symbol, token0id, token1id, poolid]
+
+        finalList.append(tempList)
+
+    poolsFrame = pd.DataFrame(finalList)
+    poolsFrame.columns = ['token0Symbol','token1Symbol','token0ID','token1ID', 'poolID']
+    print(poolsFrame)
+
+
+
+
+            
+
+
+
+
+
 #Try these out
 #tokenGet(5)
-poolGet(5)
+#poolGet(2)
+poolGetSymbol('USDC', 'WETH')
 
 
 
