@@ -30,11 +30,17 @@ def GetIDs(n, feeTier):
         feeTier= ', where: {feeTier: ' + str(feeTier) + '}'
 
     strGet = '{pools(first: '+str(n)+', orderBy:volumeUSD, orderDirection:desc'+str(feeTier)+') {id token0{symbol} token1{symbol}}}'
-
-    idGet = client.execute(gql(strGet))
+    while True:
+        try:
+            idGet = client.execute(gql(strGet))
+        except Exception as e:  
+            print(e)
+            print('Error. trying again...')
+            continue
+        break
     global poolIDs
-
-    for i in range(0, n):
+    print(len(idGet['pools']))
+    for i in range(0, len(idGet['pools'])):
         poolIDs.append(idGet['pools'][i]['id'])
         token0Symbols.append(idGet['pools'][i]['token0']['symbol'])
         token1Symbols.append(idGet['pools'][i]['token1']['symbol'])
@@ -56,11 +62,18 @@ def GetFrames(poolIDs):
         skip = 0
         ohlcList = []
         ticksList = []
-        switch = True
 
-        while switch == True:
+        while True:
             poolStr = '{pool(id: "'+id+'"){id feeTier liquidity sqrtPrice feeGrowthGlobal0X128 feeGrowthGlobal1X128 token0Price token1Price tick observationIndex volumeToken0 volumeToken1 volumeUSD untrackedVolumeUSD feesUSD txCount collectedFeesToken0 collectedFeesToken1 collectedFeesUSD liquidityProviderCount totalValueLockedUSD totalValueLockedETH totalValueLockedToken0 totalValueLockedToken1 token0{id symbol decimals}token1{id symbol decimals }poolHourData(first: 1000, skip: '+str(skip)+'){periodStartUnix close high low open}ticks(first: 1000, skip: '+str(skip)+'){tickIdx liquidityNet liquidityGross}}}'
-            poolInfo = client.execute(gql(poolStr))
+            
+            while True:
+                try:
+                    poolInfo = client.execute(gql(poolStr))
+                except Exception as e:  
+                    print(e)
+                    print('Error. trying again...')
+                    continue
+                break
 
             for i in range(len(poolInfo['pool']['ticks'])):
                 liqG = poolInfo['pool']['ticks'][i]['liquidityGross']
@@ -129,8 +142,7 @@ def GetFrames(poolIDs):
                 print('\n' +str(round((counter / len(poolIDs))*100, 2)) + '% complete')
                 counter+=1
                 a += 1
-
-                switch = False
+                break
 
             else:
                 skip +=1000 
@@ -160,7 +172,7 @@ def testPrint():
 def testCSV():
     #take 2 coins and try to save their things
     #output as CSV to get a better visual idea of the data structure
-    GetFrames(GetIDs(50, 0))
+    GetFrames(GetIDs(1000, 0))
     for i in range(len(poolIDs)):
         if not os.path.exists('ohlc'):
             os.makedirs('ohlc')
@@ -174,16 +186,12 @@ def testPlot():
     #having 5000 entries is pretty much impossible
     #if you know a way of tidying this i would be keen to see
     #right now, it crashes my computer from too much data
-    GetFrames(GetIDs(1, 0))    
-    x = ohlcFrames[0].index
-    y1 = ohlcFrames[0]['Close']
-    y2 = ohlcFrames[0]['High']
-    y3 = ohlcFrames[0]['Low']
-    y4 = ohlcFrames[0]['Open']
+    GetFrames(GetIDs('1 skip:100', 0))    
+    x = ticksFrames[0]['tickIdx']
+    y1 = ticksFrames[0]['liquidityGross']
+    y2 = ticksFrames[0]['liquidityNet']
     plt.plot(x,y1)
     plt.plot(x,y2)
-    plt.plot(x,y3)
-    plt.plot(x,y4)
     plt.show()
 
 
@@ -191,4 +199,7 @@ def testPlot():
 testCSV()
 #testPlot()#this needs attention, see comment in def 
 
-
+#server drop error
+#  File "C:\Python38\lib\site-packages\gql\client.py", line 78, in execute
+#    raise Exception(str(result.errors[0]))
+#Exception: {'message': 'Failed to get entities from store: no connection to the server\n, query = "/* qid: d17c73ceec8ff10a-8185af0b902618c9 */\\nselect \'PoolHourData\' as entity, to_jsonb(c.*) as data from (\\nselect c.*, p.id::text as g$parent_id\\n/* children_type_b */  from unnest($1::text[]) as p(id) cross join lateral (select  *  from \\"sgd36572\\".\\"pool_hour_data\\" c where c.\\"block_range\\" @> $2 and p.id = c.\\"pool\\" order by \\"id\\", block_range\\n limit 1000) c) c\\n order by g$parent_id, \\"id\\" -- binds: [[\\"0x06729eb2424da47898f935267bd4a62940de5105\\"], 13685163]"'}
