@@ -8,16 +8,21 @@ client = Client(
             url='https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
             verify=True,
             retries=5))
-
+token0Symbols = []
+token1Symbols = []
 def GetIDs(n):
-    print('Getting IDs...')
+    print('\n\nGetting IDs...')
 
-    strGet = '{pools(first: '+str(n)+', orderBy:volumeUSD, orderDirection:desc) {id}}'
+    strGet = '{pools(first: '+str(n)+', orderBy:volumeUSD, orderDirection:desc) {id token0{symbol} token1{symbol}}}'
     idGet = client.execute(gql(strGet))
     poolIDs = []
+    finalList = []
 
     for i in range(0, n):
         poolIDs.append(idGet['pools'][i]['id'])
+        token0Symbols.append(idGet['pools'][i]['token0']['symbol'])
+        token1Symbols.append(idGet['pools'][i]['token1']['symbol'])
+
     print('Done')
 
     return poolIDs
@@ -29,6 +34,9 @@ def GetFrames(poolIDs):
     counter = 1
 
     for id in poolIDs:
+        a = 0
+        print('\n'+token0Symbols[a]+'/'+token1Symbols[a]+' poolID: ' + str(id))
+        a += 1
         skip = 0
         ohlcList = []
         ticksList = []
@@ -37,6 +45,12 @@ def GetFrames(poolIDs):
         while switch == True:
             poolStr = '{pool(id: "'+id+'"){id token0{symbol}token1{symbol}poolHourData(first: 1000, skip: '+str(skip)+'){periodStartUnix close high low open}ticks(first: 1000, skip: '+str(skip)+'){tickIdx liquidityNet liquidityGross}}}'
             poolInfo = client.execute(gql(poolStr))
+
+            if len(poolInfo['pool']['poolHourData']) > 0:
+                print(str(len(poolInfo['pool']['poolHourData'])) + ' OHLC added')
+
+            if len(poolInfo['pool']['ticks']) > 0:
+                print(str(len(poolInfo['pool']['ticks'])) + ' Ticks added')
 
             for i in range(len(poolInfo['pool']['poolHourData'])):
                 close = poolInfo['pool']['poolHourData'][i]['close']
@@ -62,7 +76,7 @@ def GetFrames(poolIDs):
                 tempList = [id, ohlcFrame, ticksFrame]
                 dfList.append(tempList)
 
-                print(str(round((counter / len(poolIDs))*100, 2)) + '% complete')
+                print('\n' +str(round((counter / len(poolIDs))*100, 2)) + '% complete')
                 counter+=1
                 switch = False
 
