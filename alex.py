@@ -51,6 +51,7 @@ def tokenGet(qtyGet):
 
     tokenFrame = pd.DataFrame(infoList)
     tokenFrame.columns = ['Name','ID','Symbol','Decimals']
+    print(tokenFrame)
 
 def poolGet(qtyGet):
     strGet = '{pools(first: '+str(qtyGet)+', orderBy:volumeUSD, orderDirection:desc) {id}}'
@@ -79,6 +80,7 @@ def poolGet(qtyGet):
 
     poolFrame = pd.DataFrame(poolList)
     poolFrame.columns = ['token0Symbol','token1Symbol','token0ID','token1ID', 'poolID']
+    print(poolFrame)
     return idList
 
 def poolGetID(token0symbol, token1symbol):
@@ -172,6 +174,7 @@ def poolGetOHLC(poolID):
         if skip == 5000:
             ohlcFrame = pd.DataFrame(finalList)
             ohlcFrame.columns = ['Close', 'High', 'Low', 'Open', 'psUnix']
+            print(ohlcFrame)
             return ohlcFrame
         else:
             skip +=1000
@@ -226,16 +229,67 @@ def topFrames(qtyGet):
     print(topFrames)
     return topFrames  
 
+#waaaaay cleaner version of topFrames(), takes a list of ID's as argument
+#['0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8', '0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640']
+def topFrames2(poolIDs):
+    dfList = []
+    counter = 1
+    pct = 0
+
+    for id in poolIDs:
+        skip = 0
+        ohlcList = []
+        ticksList = []
+        switch = True
+
+        while switch == True:
+            poolStr = '{pool(id: "'+id+'"){id token0{symbol}token1{symbol}poolHourData(first: 1000, skip: '+str(skip)+'){periodStartUnix close high low open}ticks(first: 1000, skip: '+str(skip)+'){tickIdx liquidityNet liquidityGross}}}'
+            poolInfo = client.execute(gql(poolStr))
+
+            for i in range(len(poolInfo['pool']['poolHourData'])):
+                close = poolInfo['pool']['poolHourData'][i]['close']
+                high = poolInfo['pool']['poolHourData'][i]['high']
+                low = poolInfo['pool']['poolHourData'][i]['low']
+                open = poolInfo['pool']['poolHourData'][i]['open']
+                periodStartUnix = poolInfo['pool']['poolHourData'][i]['periodStartUnix']
+                tempList = [close, high, low, open, periodStartUnix]
+                ohlcList.append(tempList)
+
+            for i in range(len(poolInfo['pool']['ticks'])):
+
+                liqG = poolInfo['pool']['ticks'][i]['liquidityGross']
+                liqN = poolInfo['pool']['ticks'][i]['liquidityNet']
+                tickIdx = poolInfo['pool']['ticks'][i]['tickIdx']
+                tempList = [liqG, liqN, tickIdx]
+                ticksList.append(tempList)
+
+            if skip == 5000:
+                ohlcFrame = pd.DataFrame(ohlcList)
+                ohlcFrame.columns = ['Close', 'High', 'Low', 'Open', 'psUnix']
+                ticksFrame = pd.DataFrame(ticksList)
+                ticksFrame.columns = ['liquidityGross', 'liquidityNet', 'tickIdx']
+                tempList = [id, ohlcFrame, ticksFrame]
+                dfList.append(tempList)
+                pct = (counter / len(poolIDs))*100
+                print(str(pct) + '% complete')
+                counter+=1
+                switch = False
+            else:
+                skip +=1000 
+    print('Merging DataFrames')
+    topFrames2 = pd.DataFrame(dfList)
+    topFrames2.columns = ['poolID', 'ohlcFrame', 'ticksFrame']
+    print(topFrames2)
     
 #Try these out
-#tokenGet(5)
+#tokenGet(500)
 #poolGet(10)
 #poolGetID('DAI', 'WETH')
 #poolGetTicks('0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640')
 #poolGetOHLC('0x4585fe77225b41b697c938b018e2ac67ac5a20c0')
 #poolGetFrames('DAI', 'WETH')
-topFrames(5)
-
+#topFrames(2)
+#topFrames2(poolGet(10))
 
 '''poolGet(10) poolIDs for reference
 0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8
@@ -250,7 +304,84 @@ topFrames(5)
 0x6c6bc977e13df9b0de53b251522280bb72383700
 '''
 
-#just notes below, no functionality
+'''topFrames2 strGet but it's readable 
+{pool(id: "'+poolIDs[i]+'"{
+    id
+
+    token0{
+        symbol
+    }
+
+    token1{
+        symbol
+    }
+
+    poolHourData(first:10){
+        periodStartUnix close high low open
+    }
+
+    ticks(first:10){
+        tickIdx 
+        liquidityNet 
+        liquidityGross
+    }
+}}
+'''
+
+'''topFrames2() output
+{'pools': [{
+    'id': '0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28',
+
+    'poolHourData': [{
+        'close': '10001.64466212999659279505112078187', 
+        'high': '10001.64466212999659279505112078187', 
+        'low': '0', 
+        'open': '0', 
+        'periodStartUnix': 1626494400
+    }], 
+
+    'ticks': [{
+        'liquidityGross': '303015134493562686441', 
+        'liquidityNet': '-303015134493562686441', 
+        'tickIdx': '0'
+    }], 
+
+    'token0': {'symbol': 'BCZ'}, 
+
+    'token1': {'symbol': 'WETH'}
+}]}
+'''
+
+'''topFrames2() output with 2 ticks and hour data
+{'pools': [{
+    'id': '0x0001fcbba8eb491c3ccfeddc5a5caba1a98c4c28', 
+
+    'poolHourData': [{
+        'close': '10001.64466212999659279505112078187', 
+        'high': '10001.64466212999659279505112078187', 
+        'low': '0', 
+        'open': '0', 
+        'periodStartUnix': 1626494400
+    }], 
+    'ticks': [{
+        'liquidityGross': '303015134493562686441', 
+        'liquidityNet': '-303015134493562686441', 
+        'tickIdx': '0'
+    },{
+        'liquidityGross': '303015134493562686441', 
+        'liquidityNet': '303015134493562686441', 
+        'tickIdx': '-92200'
+    }],
+
+    'token0': {'symbol': 'BCZ'}, 
+
+    'token1': {'symbol': 'WETH'}
+}]}
+'''
+
+#topFrames2()
+'{pools(first:1){id token0{symbol}token1{symbol}poolHourData(first:200){periodStartUnix close high low open}ticks(first:2){tickIdx liquidityNet liquidityGross}}}'
+
 #{pool(id: "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640") {token0 {id symbol}token1 {id symbol}}}
 
 #pool
