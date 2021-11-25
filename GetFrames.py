@@ -2,6 +2,7 @@ from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 import pandas as pd
 import matplotlib.pyplot as plt
+import os.path
 #pd.set_option('display.max_rows', None)
 
 client = Client(
@@ -159,11 +160,14 @@ def testPrint():
 def testCSV():
     #take 2 coins and try to save their things
     #output as CSV to get a better visual idea of the data structure
-    GetFrames(GetIDs(2, 3000))
+    GetFrames(GetIDs(50, 0))
     for i in range(len(poolIDs)):
-        ohlcFrames[i].to_csv(poolIDs[i] + '_OHLC.csv')
-        ticksFrames[i].to_csv(poolIDs[i] + '_ticks.csv')
-        dfPools.loc[[i]].to_csv(poolIDs[i] + '_info.csv')
+        if not os.path.exists('ohlc'):
+            os.makedirs('ohlc')
+        if not os.path.exists('ticks'):
+            os.makedirs('ticks')            
+        ohlcFrames[i].to_csv(os.path.join('ohlc', poolIDs[i] + '_ohlc.csv'))
+        ticksFrames[i].to_csv(os.path.join('ticks', poolIDs[i] + '_ticks.csv'))
     dfPools.to_csv('poolsInfo.csv')
 
 def testPlot():
@@ -184,7 +188,7 @@ def testPlot():
 
 
 #testPrint()
-#testCSV()
+testCSV()
 #testPlot()#this needs attention, see comment in def 
 
 
