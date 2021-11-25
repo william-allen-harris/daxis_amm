@@ -12,11 +12,11 @@ class MonteCarlo:
         self.predicted_days = predicted_days
 
     def sim(self, ohlc):
-        ohlc['returns'] = ohlc['close'].pct_change()
+        ohlc['returns'] = ohlc['Close'].pct_change()
         ohlc.dropna(inplace=True)        
         
         returns = ohlc['returns']
-        prices = ohlc['close']
+        prices = ohlc['Close'].values
         
         last_price = prices[-1]
         

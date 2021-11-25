@@ -76,9 +76,9 @@ def GetFrames(poolIDs):
                 break
 
             for i in range(len(poolInfo['pool']['ticks'])):
-                liqG = poolInfo['pool']['ticks'][i]['liquidityGross']
-                liqN = poolInfo['pool']['ticks'][i]['liquidityNet']
-                tickIdx = poolInfo['pool']['ticks'][i]['tickIdx']
+                liqG = float(poolInfo['pool']['ticks'][i]['liquidityGross'])
+                liqN = float(poolInfo['pool']['ticks'][i]['liquidityNet'])
+                tickIdx = int(poolInfo['pool']['ticks'][i]['tickIdx'])
                 tempList = [liqG, liqN, tickIdx]
                 ticksList.append(tempList)
             
@@ -86,10 +86,10 @@ def GetFrames(poolIDs):
                 print(str(len(poolInfo['pool']['ticks'])) + ' Ticks added')
 
             for i in range(len(poolInfo['pool']['poolHourData'])):
-                close = poolInfo['pool']['poolHourData'][i]['close']
-                high = poolInfo['pool']['poolHourData'][i]['high']
-                low = poolInfo['pool']['poolHourData'][i]['low']
-                open = poolInfo['pool']['poolHourData'][i]['open']
+                close = float(poolInfo['pool']['poolHourData'][i]['close'])
+                high = float(poolInfo['pool']['poolHourData'][i]['high'])
+                low = float(poolInfo['pool']['poolHourData'][i]['low'])
+                open = float(poolInfo['pool']['poolHourData'][i]['open'])
                 periodStartUnix = poolInfo['pool']['poolHourData'][i]['periodStartUnix']
                 tempList = [close, high, low, open, periodStartUnix]
                 ohlcList.append(tempList)
@@ -108,22 +108,22 @@ def GetFrames(poolIDs):
 
                 sqrtPrice = poolInfo['pool']['sqrtPrice']
                 liq = poolInfo['pool']['liquidity']
-                feeTier = poolInfo['pool']['feeTier']
+                feeTier = int(poolInfo['pool']['feeTier'])
                 t0id = poolInfo['pool']['token0']['id']
                 t0symbol = poolInfo['pool']['token0']['symbol']
-                t0decimals = poolInfo['pool']['token0']['decimals']
+                t0decimals = int(poolInfo['pool']['token0']['decimals'])
                 t1id = poolInfo['pool']['token1']['id']
                 t1symbol = poolInfo['pool']['token1']['symbol']
-                t1decimals = poolInfo['pool']['token1']['decimals']
+                t1decimals = int(poolInfo['pool']['token1']['decimals'])
                 feeGrowthGlobal0X128 = poolInfo['pool']['feeGrowthGlobal0X128']
                 feeGrowthGlobal1X128 = poolInfo['pool']['feeGrowthGlobal1X128']
-                token0Price = poolInfo['pool']['token0Price']
+                token0Price = float(poolInfo['pool']['token0Price'])
                 token1Price = poolInfo['pool']['token1Price']
                 tick = poolInfo['pool']['tick']
                 observationIndex = poolInfo['pool']['observationIndex']
                 volumeToken0 = poolInfo['pool']['volumeToken0']
                 volumeToken1 = poolInfo['pool']['volumeToken1']
-                volumeUSD = poolInfo['pool']['volumeUSD']
+                volumeUSD = float(poolInfo['pool']['volumeUSD'])
                 untrackedVolumeUSD = poolInfo['pool']['untrackedVolumeUSD']
                 feesUSD = poolInfo['pool']['feesUSD']
                 txCount = poolInfo['pool']['txCount']
@@ -152,7 +152,7 @@ def GetFrames(poolIDs):
     dfPools = pd.DataFrame(dfList)
     dfPools.columns = ['poolID', 'liquidity', 'FeeTier', 'sqrtPrice', 't0id', 't0symbol','t0decimals','t1id','t1symbol','t1decimals', 'feeGrowthGlobal0X128', 'feeGrowthGlobal1X128', 'token0Price', 'token1Price', 'tick', 'observationIndex', 'volumeToken0', 'volumeToken1', 'volumeUSD', 'untrackedVolumeUSD', 'feesUSD', 'txCount', 'collectedFeesToken0', 'collectedFeesToken1', 'collectedFeesUSD', 'liquidityProviderCount', 'totalValueLockedUSD', 'totalValueLockedETH', 'totalValueLockedToken0', 'totalValueLockedToken1']
     print('Done!')
-    return dfPools
+    return dfPools, ohlcFrames, ticksFrames
 
 def testPrint(): 
     #ohlcFrames
@@ -196,7 +196,7 @@ def testPlot():
 
 
 #testPrint()
-testCSV()
+#testCSV()
 #testPlot()#this needs attention, see comment in def 
 
 #server drop error
