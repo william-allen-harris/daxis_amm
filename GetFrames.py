@@ -147,7 +147,7 @@ def testPrint():
     #these lists store the dataframes of ohlc and ticks (DataFrame within DataFrame ended up breaking the data)
     #they are indexed the same as dfPools, so
     #the pool at 0 index in dfPools will have its ohlc and ticks in ohlcFrames[0] and ticksFrames[0]
-    GetFrames(GetIDs(2, 3000))
+    GetFrames(GetIDs(1, 3000))
     print('\nExample output for one pool...')
     print('\nEntry into "list of pools" DataFrame:')
     print(dfPools.loc[[0]])
@@ -159,8 +159,8 @@ def testPrint():
 def testCSV():
     #take 2 coins and try to save their things
     #output as CSV to get a better visual idea of the data structure
-    GetFrames(GetIDs(20, 3000))
-    for i in range(2):
+    GetFrames(GetIDs(2, 3000))
+    for i in range(len(poolIDs)):
         ohlcFrames[i].to_csv(poolIDs[i] + '_OHLC.csv')
         ticksFrames[i].to_csv(poolIDs[i] + '_ticks.csv')
         dfPools.loc[[i]].to_csv(poolIDs[i] + '_info.csv')
@@ -170,8 +170,7 @@ def testPlot():
     #having 5000 entries is pretty much impossible
     #if you know a way of tidying this i would be keen to see
     #right now, it crashes my computer from too much data
-    GetFrames(GetIDs(1, 0))
-    
+    GetFrames(GetIDs(1, 0))    
     x = ohlcFrames[0].index
     y1 = ohlcFrames[0]['Close']
     y2 = ohlcFrames[0]['High']
