@@ -1,7 +1,7 @@
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 import pandas as pd
-pd.set_option('display.max_rows', None)
+#pd.set_option('display.max_rows', None)
 
 client = Client(
             transport=RequestsHTTPTransport(
@@ -11,9 +11,14 @@ client = Client(
 
 token0Symbols = []
 token1Symbols = []
+ohlcFrames = []
+ticksFrames = []
+poolIDs = []
 feeTier = 0
-
 def GetIDs(n, feeTier):
+    #GetIDs(n, FeeTier) returns a list of pool IDs
+    #n: length of list
+    #FeeTier: Sort by FeeTier (use 0 for no sorting) 
     if feeTier == 0:
         print('\n\nGetting '+str(n)+' IDs - no FeeTier requirement...')
         feeTier = ''
@@ -25,7 +30,7 @@ def GetIDs(n, feeTier):
     strGet = '{pools(first: '+str(n)+', orderBy:volumeUSD, orderDirection:desc'+str(feeTier)+') {id token0{symbol} token1{symbol}}}'
 
     idGet = client.execute(gql(strGet))
-    poolIDs = []
+    global poolIDs
 
     for i in range(0, n):
         poolIDs.append(idGet['pools'][i]['id'])
@@ -35,6 +40,8 @@ def GetIDs(n, feeTier):
     return poolIDs
 
 def GetFrames(poolIDs):
+    #GetFrames(poolIDs) returns a Dataframe of pools
+    #poolIDs: list of poolIDs
     print('\nGetting OHLC and Tick data for IDs...')
 
     dfList = []
@@ -78,9 +85,11 @@ def GetFrames(poolIDs):
             if skip == 5000:
                 ohlcFrame = pd.DataFrame(ohlcList)
                 ohlcFrame.columns = ['Close', 'High', 'Low', 'Open', 'psUnix']
+                ohlcFrames.append(ohlcFrame)
 
                 ticksFrame = pd.DataFrame(ticksList)
                 ticksFrame.columns = ['liquidityGross', 'liquidityNet', 'tickIdx']
+                ticksFrames.append(ticksFrame)
 
                 sqrtPrice = poolInfo['pool']['sqrtPrice']
                 liq = poolInfo['pool']['liquidity']
@@ -112,7 +121,7 @@ def GetFrames(poolIDs):
                 totalValueLockedToken0 = poolInfo['pool']['totalValueLockedToken0']
                 totalValueLockedToken1= poolInfo['pool']['totalValueLockedToken1']
 
-                tempList = [id, liq, feeTier, sqrtPrice, t0id, t0symbol, t0decimals, t1id, t1symbol, t1decimals, feeGrowthGlobal0X128, feeGrowthGlobal1X128, token0Price, token1Price, tick, observationIndex, volumeToken0, volumeToken1, volumeUSD, untrackedVolumeUSD, feesUSD, txCount, collectedFeesToken0, collectedFeesToken1, collectedFeesUSD, liquidityProviderCount, totalValueLockedUSD, totalValueLockedETH, totalValueLockedToken0, totalValueLockedToken1, ohlcFrame, ticksFrame]
+                tempList = [id, liq, feeTier, sqrtPrice, t0id, t0symbol, t0decimals, t1id, t1symbol, t1decimals, feeGrowthGlobal0X128, feeGrowthGlobal1X128, token0Price, token1Price, tick, observationIndex, volumeToken0, volumeToken1, volumeUSD, untrackedVolumeUSD, feesUSD, txCount, collectedFeesToken0, collectedFeesToken1, collectedFeesUSD, liquidityProviderCount, totalValueLockedUSD, totalValueLockedETH, totalValueLockedToken0, totalValueLockedToken1]
                 dfList.append(tempList)
 
                 print('\n' +str(round((counter / len(poolIDs))*100, 2)) + '% complete')
@@ -124,19 +133,38 @@ def GetFrames(poolIDs):
             else:
                 skip +=1000 
 
-    print('\nGenerating DataFrame...\n')
+    print('\nGenerating DataFrame...')
+    global dfPools
     dfPools = pd.DataFrame(dfList)
-    dfPools.columns = ['poolID', 'liquidity', 'FeeTier', 'sqrtPrice', 't0id', 't0symbol','t0decimals','t1id','t1symbol','t1decimals', 'feeGrowthGlobal0X128', 'feeGrowthGlobal1X128', 'token0Price', 'token1Price', 'tick', 'observationIndex', 'volumeToken0', 'volumeToken1', 'volumeUSD', 'untrackedVolumeUSD', 'feesUSD', 'txCount', 'collectedFeesToken0', 'collectedFeesToken1', 'collectedFeesUSD', 'liquidityProviderCount', 'totalValueLockedUSD', 'totalValueLockedETH', 'totalValueLockedToken0', 'totalValueLockedToken1','ohlcFrame', 'ticksFrame']
-    print(dfPools)
+    dfPools.columns = ['poolID', 'liquidity', 'FeeTier', 'sqrtPrice', 't0id', 't0symbol','t0decimals','t1id','t1symbol','t1decimals', 'feeGrowthGlobal0X128', 'feeGrowthGlobal1X128', 'token0Price', 'token1Price', 'tick', 'observationIndex', 'volumeToken0', 'volumeToken1', 'volumeUSD', 'untrackedVolumeUSD', 'feesUSD', 'txCount', 'collectedFeesToken0', 'collectedFeesToken1', 'collectedFeesUSD', 'liquidityProviderCount', 'totalValueLockedUSD', 'totalValueLockedETH', 'totalValueLockedToken0', 'totalValueLockedToken1']
+    print('Done!')
     return dfPools
 
-#GetIDs(n, FeeTier) returns a list of pool IDs
-#   n: length of list
-#   FeeTier: Sort by FeeTier (use 0 for no sorting) 
+def testPrint(): 
+    #ohlcFrames
+    #ticksFrames
+    #these lists store the dataframes of ohlc and ticks (DataFrame within DataFrame ended up breaking the data)
+    #they are indexed the same as dfPools, so
+    #the pool at 0 index in dfPools will have its ohlc and ticks in ohlcFrames[0] and ticksFrames[0]
+    GetFrames(GetIDs(2, 3000))
+    print('\nExample output for one pool...')
+    print('\nEntry into "list of pools" DataFrame:')
+    print(dfPools.loc[[0]])
+    print('\nOHLC DataFrame:')
+    print(ohlcFrames[0])
+    print('\nTicks DataFrame:')
+    print(ticksFrames[0])
 
-#GetFrames(poolIDs) returns a Dataframe of pools
-#   poolIDs: list of poolIDs
+def testCSV():
+    #take 2 coins and try to save their things
+    #output as CSV to get a better visual idea of the data structure
+    GetFrames(GetIDs(2, 3000))
+    for i in range(len(poolIDs)):
+        ohlcFrames[i].to_csv(poolIDs[i] + '_OHLC.csv')
+        ticksFrames[i].to_csv(poolIDs[i] + '_ticks.csv')
+        dfPools.loc[[i]].to_csv(poolIDs[i] + '_info.csv')
+    dfPools.to_csv('poolsInfo.csv')
 
-GetFrames(GetIDs(20, 3000))
-
+#testCSV()
+#testPrint()
 
