@@ -8,15 +8,16 @@ client = Client(
             url='https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
             verify=True,
             retries=5))
+
 token0Symbols = []
 token1Symbols = []
+
 def GetIDs(n):
     print('\n\nGetting IDs...')
 
     strGet = '{pools(first: '+str(n)+', orderBy:volumeUSD, orderDirection:desc) {id token0{symbol} token1{symbol}}}'
     idGet = client.execute(gql(strGet))
     poolIDs = []
-    finalList = []
 
     for i in range(0, n):
         poolIDs.append(idGet['pools'][i]['id'])
@@ -32,11 +33,11 @@ def GetFrames(poolIDs):
 
     dfList = []
     counter = 1
+    a = 0
+
 
     for id in poolIDs:
-        a = 0
         print('\n'+token0Symbols[a]+'/'+token1Symbols[a]+' poolID: ' + str(id))
-        a += 1
         skip = 0
         ohlcList = []
         ticksList = []
@@ -73,11 +74,13 @@ def GetFrames(poolIDs):
                 ohlcFrame.columns = ['Close', 'High', 'Low', 'Open', 'psUnix']
                 ticksFrame = pd.DataFrame(ticksList)
                 ticksFrame.columns = ['liquidityGross', 'liquidityNet', 'tickIdx']
-                tempList = [id, ohlcFrame, ticksFrame]
+                tempList = [id, token0Symbols[a], token1Symbols[a], ohlcFrame, ticksFrame]
                 dfList.append(tempList)
 
                 print('\n' +str(round((counter / len(poolIDs))*100, 2)) + '% complete')
                 counter+=1
+                a += 1
+
                 switch = False
 
             else:
@@ -85,10 +88,10 @@ def GetFrames(poolIDs):
 
     print('\nGenerating DataFrame...\n')
     dfPools = pd.DataFrame(dfList)
-    dfPools.columns = ['poolID', 'ohlcFrame', 'ticksFrame']
+    dfPools.columns = ['poolID', 'token0', 'token1', 'ohlcFrame', 'ticksFrame']
     print(dfPools)
     return dfPools
 
 #GetIDs(n) takes n and returns a list of pool IDs, length n
 #GetFrames(poolIDs) takes a list of pool IDs and returns a Dataframe for each
-GetFrames(GetIDs(7))
+GetFrames(GetIDs(190))
