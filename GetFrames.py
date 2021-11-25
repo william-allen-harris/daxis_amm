@@ -14,11 +14,12 @@ token1Symbols = []
 feeTier = 0
 
 def GetIDs(n, feeTier):
-    print('\n\nGetting '+str(n)+' IDs with FeeTier: '+str(feeTier)+'...')
     if feeTier == 0:
+        print('\n\nGetting '+str(n)+' IDs - no FeeTier requirement...')
         feeTier = ''
 
     else:
+        print('\n\nGetting '+str(n)+' IDs with FeeTier: '+str(feeTier)+'...')
         feeTier= ', where: {feeTier: ' + str(feeTier) + '}'
 
     strGet = '{pools(first: '+str(n)+', orderBy:volumeUSD, orderDirection:desc'+str(feeTier)+') {id token0{symbol} token1{symbol}}}'
@@ -129,8 +130,13 @@ def GetFrames(poolIDs):
     print(dfPools)
     return dfPools
 
-#GetIDs(n) takes n and returns a list of pool IDs, length n
-#GetFrames(poolIDs) takes a list of pool IDs and returns a Dataframe for each
-GetFrames(GetIDs(3, 3000))
+#GetIDs(n, FeeTier) returns a list of pool IDs
+#   n: length of list
+#   FeeTier: Sort by FeeTier (use 0 for no sorting) 
+
+#GetFrames(poolIDs) returns a Dataframe of pools
+#   poolIDs: list of poolIDs
+
+GetFrames(GetIDs(20, 3000))
 
 
