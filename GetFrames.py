@@ -1,6 +1,7 @@
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 import pandas as pd
+import matplotlib.pyplot as plt
 #pd.set_option('display.max_rows', None)
 
 client = Client(
@@ -158,13 +159,33 @@ def testPrint():
 def testCSV():
     #take 2 coins and try to save their things
     #output as CSV to get a better visual idea of the data structure
-    GetFrames(GetIDs(2, 3000))
-    for i in range(len(poolIDs)):
+    GetFrames(GetIDs(20, 3000))
+    for i in range(2):
         ohlcFrames[i].to_csv(poolIDs[i] + '_OHLC.csv')
         ticksFrames[i].to_csv(poolIDs[i] + '_ticks.csv')
         dfPools.loc[[i]].to_csv(poolIDs[i] + '_info.csv')
     dfPools.to_csv('poolsInfo.csv')
 
-#testCSV()
+def testPlot():
+    #having 5000 entries is pretty much impossible
+    #if you know a way of tidying this i would be keen to see
+    #right now, it crashes my computer from too much data
+    GetFrames(GetIDs(1, 0))
+    
+    x = ohlcFrames[0].index
+    y1 = ohlcFrames[0]['Close']
+    y2 = ohlcFrames[0]['High']
+    y3 = ohlcFrames[0]['Low']
+    y4 = ohlcFrames[0]['Open']
+    plt.plot(x,y1)
+    plt.plot(x,y2)
+    plt.plot(x,y3)
+    plt.plot(x,y4)
+    plt.show()
+
+
 #testPrint()
+#testCSV()
+#testPlot()#this needs attention, see comment in def 
+
 
