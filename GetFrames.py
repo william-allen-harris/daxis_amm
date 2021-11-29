@@ -3,6 +3,7 @@ from gql.transport.requests import RequestsHTTPTransport
 import pandas as pd
 import matplotlib.pyplot as plt
 import os.path
+from pool import Pool
 #pd.set_option('display.max_rows', None)
 
 client = Client(
@@ -47,7 +48,7 @@ def GetIDs(n, feeTier):
 
     return poolIDs
 
-def GetFrames(poolIDs):
+def GetFrames(poolIDs, return_type='DataFrame'):
     #GetFrames(poolIDs) returns a Dataframe of pools
     #poolIDs: list of poolIDs
     print('\nGetting OHLC and Tick data for IDs...')
@@ -118,7 +119,7 @@ def GetFrames(poolIDs):
                 feeGrowthGlobal0X128 = poolInfo['pool']['feeGrowthGlobal0X128']
                 feeGrowthGlobal1X128 = poolInfo['pool']['feeGrowthGlobal1X128']
                 token0Price = float(poolInfo['pool']['token0Price'])
-                token1Price = poolInfo['pool']['token1Price']
+                token1Price = float(poolInfo['pool']['token1Price'])
                 tick = poolInfo['pool']['tick']
                 observationIndex = poolInfo['pool']['observationIndex']
                 volumeToken0 = poolInfo['pool']['volumeToken0']
@@ -136,7 +137,7 @@ def GetFrames(poolIDs):
                 totalValueLockedToken0 = poolInfo['pool']['totalValueLockedToken0']
                 totalValueLockedToken1= poolInfo['pool']['totalValueLockedToken1']
 
-                tempList = [id, liq, feeTier, sqrtPrice, t0id, t0symbol, t0decimals, t1id, t1symbol, t1decimals, feeGrowthGlobal0X128, feeGrowthGlobal1X128, token0Price, token1Price, tick, observationIndex, volumeToken0, volumeToken1, volumeUSD, untrackedVolumeUSD, feesUSD, txCount, collectedFeesToken0, collectedFeesToken1, collectedFeesUSD, liquidityProviderCount, totalValueLockedUSD, totalValueLockedETH, totalValueLockedToken0, totalValueLockedToken1]
+                tempList = [id, liq, feeTier, sqrtPrice, t0id, t0symbol, t0decimals, t1id, t1symbol, t1decimals, feeGrowthGlobal0X128, feeGrowthGlobal1X128, token0Price, token1Price, tick, observationIndex, volumeToken0, volumeToken1, volumeUSD, untrackedVolumeUSD, feesUSD, txCount, collectedFeesToken0, collectedFeesToken1, collectedFeesUSD, liquidityProviderCount, totalValueLockedUSD, totalValueLockedETH, totalValueLockedToken0, totalValueLockedToken1, ohlcFrame, ticksFrame]
                 dfList.append(tempList)
 
                 print('\n' +str(round((counter / len(poolIDs))*100, 2)) + '% complete')
@@ -147,12 +148,19 @@ def GetFrames(poolIDs):
             else:
                 skip +=1000 
 
-    print('\nGenerating DataFrame...')
     global dfPools
-    dfPools = pd.DataFrame(dfList)
-    dfPools.columns = ['poolID', 'liquidity', 'FeeTier', 'sqrtPrice', 't0id', 't0symbol','t0decimals','t1id','t1symbol','t1decimals', 'feeGrowthGlobal0X128', 'feeGrowthGlobal1X128', 'token0Price', 'token1Price', 'tick', 'observationIndex', 'volumeToken0', 'volumeToken1', 'volumeUSD', 'untrackedVolumeUSD', 'feesUSD', 'txCount', 'collectedFeesToken0', 'collectedFeesToken1', 'collectedFeesUSD', 'liquidityProviderCount', 'totalValueLockedUSD', 'totalValueLockedETH', 'totalValueLockedToken0', 'totalValueLockedToken1']
-    print('Done!')
-    return dfPools, ohlcFrames, ticksFrames
+    if return_type == 'DataFrame':
+        print('\nGenerating DataFrame...')
+
+        dfPools = pd.DataFrame(dfList)
+        dfPools.columns = ['poolID', 'liquidity', 'FeeTier', 'sqrtPrice', 't0id', 't0symbol','t0decimals','t1id','t1symbol','t1decimals', 'feeGrowthGlobal0X128', 'feeGrowthGlobal1X128', 'token0Price', 'token1Price', 'tick', 'observationIndex', 'volumeToken0', 'volumeToken1', 'volumeUSD', 'untrackedVolumeUSD', 'feesUSD', 'txCount', 'collectedFeesToken0', 'collectedFeesToken1', 'collectedFeesUSD', 'liquidityProviderCount', 'totalValueLockedUSD', 'totalValueLockedETH', 'totalValueLockedToken0', 'totalValueLockedToken1', 'OHLC_df', 'Ticks_df']
+        print('Done!')
+        return dfPools
+
+    if return_type == 'Object':
+        print('\nGenerating Pool Objects...')
+        return [Pool(*pool_info) for pool_info in dfList]
+
 
 def testPrint(): 
     #ohlcFrames

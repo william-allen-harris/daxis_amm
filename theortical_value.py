@@ -1,6 +1,6 @@
-from GetFrames import GetIDs, GetFrames
 from montecarlo import MonteCarlo
 import math
+import pandas as pd
 
 
 def calc_liquidity(amount0, amount1, currentprice, lowerprice, upperprice):
@@ -22,16 +22,42 @@ def calc_liquidity(amount0, amount1, currentprice, lowerprice, upperprice):
     elif upper < cprice:
         return amount1 * 2**96 / (upper - lower)
 
-def price_to_tick(price: int, decimals0, decimals1) -> dict:
+
+def price_to_tick(price, decimals0, decimals1) -> dict:
     return math.floor(math.log(1/price * (10**decimals1) / (10**decimals0)) / math.log(1.0001))
 
 
-def tv(ohlc, ticks, volumeUSD, fee_tier, decimals0, decimals1, price, lowerprice, upperprice, amount0, amount1):
-    ohlc = ohlc.iloc[-3*24:]
+def tick_to_price(tick: str, decimals0, decimals1) -> dict:
+    token0_price =  1.0001**(int(tick)) * (10**decimals0) / (10**decimals1)
+    return {'token0_price': token0_price, 'token1_price': 1/token0_price}
 
-    average_hr_fees = volumeUSD * (fee_tier/1000000) / 24
 
-    liquidity = calc_liquidity(amount0, amount1, price, lowerprice, upperprice)
+def build_ticks(tick_list, decimals0, decimals1, fee_tier):
+    for i in range(len(tick_list)):
+        if i == 0:
+            tick_list[i]['liquidity'] = int(tick_list[i]['liquidityGross'])
+        else:
+            tick_list[i]['liquidity'] = tick_list[i-1]['liquidity'] - int(tick_list[i]['liquidityNet'])
+
+    tick_index = {int(tick['tickIdx']): int(tick['liquidity']) for tick in tick_list}
+    tick_list = []
+    for tick in range(min(tick_index), max(tick_index), {10000: 200, 3000: 60, 500: 10}[fee_tier]):
+        prices = tick_to_price(tick, decimals0, decimals1)
+        liquidity = tick_index[tick] if tick in tick_index else tick_list[-1][3]
+        tick_list.append([tick, prices['token0_price'], prices['token1_price'], liquidity])
+    
+    df = pd.DataFrame(tick_list, columns=['tickIdx', 'Price0', 'Price1', 'Liquidity'])
+    df.set_index('tickIdx', inplace=True)
+    return df
+
+
+def tv(pool, lowerprice, upperprice, amount0, amount1):
+    ohlc = pool.OHLC_df.copy().iloc[-3*24:]
+
+    average_hr_fees = pool.volumeUSD * (pool.FeeTier/1000000) / 24
+
+    liquidity = calc_liquidity(amount0, amount1, pool.token0Price, lowerprice, upperprice)
+    ticks = build_ticks(pool.Ticks_df.to_dict('records'), pool.t0decimals, pool.t1decimals, pool.FeeTier)
     tick_index = ticks.to_dict('index')
 
     simulator = MonteCarlo()
@@ -40,14 +66,13 @@ def tv(ohlc, ticks, volumeUSD, fee_tier, decimals0, decimals1, price, lowerprice
     for col in simulator.simulations_dict:
         col_fees = []
         for node in simulator.simulations_dict[col]:
-            tick = price_to_tick(node, decimals0, decimals1)
-            closest_tick_spacing = tick - tick % {10000: 200, 3000: 60, 500: 10}[fee_tier]
+            tick = price_to_tick(node, pool.t0decimals, pool.t1decimals)
+            closest_tick_spacing = tick - tick % {10000: 200, 3000: 60, 500: 10}[pool.FeeTier]
             tick_liquidity = tick_index[closest_tick_spacing]['Liquidity']
             average_fee_revenue = (liquidity/tick_liquidity) * average_hr_fees
             col_fees.append(average_fee_revenue)
         fees.append(col_fees)
     
-    print(fees)
     Ils = []
     for col in simulator.simulations_dict:
         last_price = simulator.simulations_dict[col][-1]
@@ -68,19 +93,6 @@ def tv(ohlc, ticks, volumeUSD, fee_tier, decimals0, decimals1, price, lowerprice
             amt1_lp = liquidity / 2**96 * (upper - lower)/ 10**6
             amt0_lp = 0
 
-        print(1/last_price, amt0_lp, amt1_lp)
         Ils.append((amt0_lp- amount0)*1/last_price +  amt1_lp - amount1)
     
     return sum([sum(fee) + Il for Il, fee in zip(Ils, fees)]) / len(simulator.simulations_dict) 
-
-
-test_id= GetIDs(1, 0)
-pool_info_df, ohlc_df_list, ticks_df_list = GetFrames(test_id)
-
-# take the first
-pool_info_df = pool_info_df.iloc[0]
-ohlc_df = ohlc_df_list[0]
-ticks_df = ticks_df_list[0]
-
-print(tv(ohlc_df, ticks_df, pool_info_df['volumeUSD'], pool_info_df['FeeTier'], pool_info_df['t0decimals'], pool_info_df['t1decimals'],
-	pool_info_df['token0Price'], pool_info_df['token0Price']*0.5, pool_info_df['token0Price']*1.5, 1000, 0.1))

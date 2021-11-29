@@ -7,12 +7,13 @@ import math
 
 
 class MonteCarlo:
-    def __init__(self, num_simulations=10, predicted_days=24):
+    def __init__(self, num_simulations=10000, predicted_days=24):
         self.num_simulations = num_simulations
         self.predicted_days = predicted_days
 
-    def sim(self, ohlc):
-        ohlc['returns'] = ohlc['Close'].pct_change()
+    def sim(self, input_ohlc):
+        ohlc = input_ohlc.copy()
+        ohlc['returns'] = ohlc.Close.pct_change()
         ohlc.dropna(inplace=True)        
         
         returns = ohlc['returns']
