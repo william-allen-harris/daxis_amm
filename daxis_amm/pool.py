@@ -84,3 +84,4 @@ class UniswapV3LP:
     def graph_liquidity(self):
         "Graph the liquidity"
         uniswap_v3.liquidity_graph(self.built_ticks(), self.pool.token0Price)
+
