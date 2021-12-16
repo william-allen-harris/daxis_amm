@@ -82,11 +82,11 @@ class Pool:
     def ohlc(self):
         return self.context.pool_ohlc(self.id)
 
-    def plot_liquidity(self, min_x: float = -0.5, max_x: float = 1, x: str = 'Price0'):
+    def plot_liquidity(self, min_x: float =0.9, max_x: float = 1.1, x: str = 'Price1'):
         bar_plot = self.ticks.copy()
         bar_plot.reset_index(inplace=True)
         bar_plot['color'] = np.where((bar_plot['tickIdx'] > self.tick) & (bar_plot['tickIdx'] < self.tick + self.tick_spacing), 'crimson', 'lightslategray')
-        bar_plot['diff'] = (bar_plot['Price1']/self.price1) - 1
+        bar_plot['diff'] = (bar_plot['Price1']/self.price1)
         bar_plot = bar_plot[bar_plot['diff'].between(min_x, max_x)]
         bar_plot.sort_values(x, inplace=True)
         fig = px.bar(bar_plot, x=x, y='Liquidity', color='color')
@@ -99,14 +99,13 @@ class Pool:
     def price_to_tick(self, price):
         return self.context.price_to_tick(price, self.token0.decimals, self.token1.decimals)
 
-    @staticmethod
-    def liquidity(amount0, amount1, currentprice, lowerprice, upperprice):
-        amount0 = amount0 * 10**18
-        amount1 = amount1 * 10**6
+    def liquidity(self, amount0, amount1, currentprice, lowerprice, upperprice):
+        amount0 = amount0 * 10**self.token0.decimals
+        amount1 = amount1 * 10**self.token1.decimals
 
-        upper = math.sqrt(upperprice * 10**6 / 10**18) * 2**96
-        lower = math.sqrt(lowerprice * 10**6 / 10**18) * 2**96
-        cprice = math.sqrt(currentprice * 10**6 / 10**18) * 2**96
+        upper = math.sqrt(upperprice * 10**self.token1.decimals / 10**self.token0.decimals) * 2**96
+        lower = math.sqrt(lowerprice * 10**self.token1.decimals / 10**self.token0.decimals) * 2**96
+        cprice = math.sqrt(currentprice * 10**self.token1.decimals / 10**self.token0.decimals) * 2**96
 
         if cprice <= lower:
             return amount0 * (upper * lower / 2**96) / (upper - lower)
@@ -120,6 +119,8 @@ class Pool:
             return amount1 * 2**96 / (upper - lower)
 
     def tv(self, simulator, price, lowerprice, upperprice, amount0, amount1):
+        print(self.token0.decimals, self.token1.decimals)
+        print(amount0, amount1)
         ohlc = self.ohlc.iloc[-3*24:]
 
         average_hr_fees = self.volumeUSD * (self.fee_tier/1000000) / 24
@@ -128,6 +129,7 @@ class Pool:
         tick_index = self.ticks.to_dict('index')
 
         simulator.sim(ohlc)
+        simulator.line_graph()
         fees = []
         for col in simulator.simulations_dict:
             col_fees = []
@@ -139,30 +141,30 @@ class Pool:
                 col_fees.append(average_fee_revenue)
             fees.append(col_fees)
         
-        print(fees)
+        #print(fees)
         Ils = []
         for col in simulator.simulations_dict:
             last_price = simulator.simulations_dict[col][-1]
             
-            upper = math.sqrt(upperprice * 10**6 / 10**18) * 2**96
-            lower = math.sqrt(lowerprice * 10**6 / 10**18) * 2**96
-            cprice = math.sqrt(1/last_price * 10**6 / 10**18) * 2**96
+            upper = math.sqrt(upperprice * 10**self.token1.decimals / 10**self.token0.decimals) * 2**96
+            lower = math.sqrt(lowerprice * 10**self.token1.decimals / 10**self.token0.decimals) * 2**96
+            cprice = math.sqrt(1/last_price * 10**self.token1.decimals / 10**self.token0.decimals) * 2**96
 
             if cprice <= lower:
-                amt0_lp = liquidity / (upper * lower / 2**96) * (upper - lower) / 10**18
+                amt0_lp = liquidity / (upper * lower / 2**96) * (upper - lower) / 10**self.token0.decimals
                 amt1_lp = 0
             
             elif lower < cprice <= upper:
-                amt0_lp = liquidity / (upper * cprice / 2**96) * (upper - cprice) / 10**18
-                amt1_lp = liquidity / 2**96 * (cprice - lower) / 10**6
+                amt0_lp = liquidity / (upper * cprice / 2**96) * (upper - cprice) / 10**self.token0.decimals
+                amt1_lp = liquidity / 2**96 * (cprice - lower) / 10**self.token1.decimals
         
             elif upper < cprice:
-                amt1_lp = liquidity / 2**96 * (upper - lower)/ 10**6
+                amt1_lp = liquidity / 2**96 * (upper - lower)/ 10**self.token1.decimals
                 amt0_lp = 0
 
-            print(1/last_price, amt0_lp, amt1_lp)
+            print(price, 1/last_price, amt0_lp, amount0, amt1_lp, amount1)
             Ils.append((amt0_lp- amount0)*1/last_price +  amt1_lp - amount1)
-        
+        print(Ils)
         return sum([sum(fee) + Il for Il, fee in zip(Ils, fees)]) / len(simulator.simulations_dict) 
 
 
@@ -178,8 +180,8 @@ class LPUniswapV3:
 
     def __post_init__(self):
         self.pool = Pool(self.token0_symbol, self.token1_symbol, self.fee_tier, self.context)
-        self.amount0 = self.get_amount0()
-        self.amount1 = self.deposit_amount
+        self.amount0 = self.deposit_amount
+        self.amount1 = self.get_amount1()
     
     @property
     def price_high(self):

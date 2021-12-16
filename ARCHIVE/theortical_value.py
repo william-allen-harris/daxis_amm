@@ -1,27 +1,26 @@
-from montecarlo import MonteCarlo
+from ARCHIVE.montecarlo import MonteCarlo
 import math
 import pandas as pd
 
 
 def calc_liquidity(amount0, amount1, currentprice, lowerprice, upperprice):
-    amount0 = amount0 * 10**18
-    amount1 = amount1 * 10**6
-
-    upper = math.sqrt(upperprice * 10**6 / 10**18) * 2**96
-    lower = math.sqrt(lowerprice * 10**6 / 10**18) * 2**96
-    cprice = math.sqrt(currentprice * 10**6 / 10**18) * 2**96
+    """Calculate the liquidity for a LP."""
+    upper = math.sqrt(upperprice)
+    lower = math.sqrt(lowerprice)
+    cprice = math.sqrt(currentprice)
 
     if cprice <= lower:
-        return amount0 * (upper * lower / 2**96) / (upper - lower)
+        return amount0 * (upper * lower) / (upper - lower)
 
     elif lower < cprice <= upper:
-        liquidity0 = amount0 * (upper * cprice / 2**96) / (upper - cprice)
-        liquidity1 = amount1 * 2**96 / (cprice - lower)
+        liquidity0 = amount0 * (upper * cprice ) / (upper - cprice)
+        liquidity1 = amount1 / (cprice - lower)
         return min(liquidity0, liquidity1)
     
     elif upper < cprice:
-        return amount1 * 2**96 / (upper - lower)
+        return amount1 / (upper - lower)
 
+print(calc_liquidity(0.12, 513.34, 4029.63, 3635.7, 4443.81, 6, 18))
 
 def price_to_tick(price, decimals0, decimals1) -> dict:
     return math.floor(math.log(1/price * (10**decimals1) / (10**decimals0)) / math.log(1.0001))
@@ -33,6 +32,15 @@ def tick_to_price(tick: str, decimals0, decimals1) -> dict:
 
 
 def build_ticks(tick_list, decimals0, decimals1, fee_tier):
+    """
+    The input tick_data from the Uniswap_v3 subgraph is scaled by the two tokens decimals.
+
+    Thus:
+        L = Liquidity_{from sub-graph} * 10 ^^ (decimals0-decimals1).
+    
+    To get in the same form as the return value for calc_liquidity multiple all liquidity values by 10 ^^ (decimals0-decimals1).
+    https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf
+    """
     for i in range(len(tick_list)):
         if i == 0:
             tick_list[i]['liquidity'] = int(tick_list[i]['liquidityGross'])
@@ -48,6 +56,7 @@ def build_ticks(tick_list, decimals0, decimals1, fee_tier):
     
     df = pd.DataFrame(tick_list, columns=['tickIdx', 'Price0', 'Price1', 'Liquidity'])
     df.set_index('tickIdx', inplace=True)
+    df['Liquidity'] = df['Liquidity'] * 10**(decimals0-decimals1)
     return df
 
 
@@ -56,12 +65,27 @@ def tv(pool, lowerprice, upperprice, amount0, amount1):
 
     average_hr_fees = pool.volumeUSD * (pool.FeeTier/1000000) / 24
 
-    liquidity = calc_liquidity(amount0, amount1, pool.token0Price, lowerprice, upperprice)
-    ticks = build_ticks(pool.Ticks_df.to_dict('records'), pool.t0decimals, pool.t1decimals, pool.FeeTier)
+    liquidity = calc_liquidity(amount1, amount0, pool.token0Price, lowerprice, upperprice, pool.t0decimals, pool.t1decimals)
+    ticks = build_ticks(pool.Ticks_df.sort_values("tickIdx", ascending=False).to_dict('records'), pool.t0decimals, pool.t1decimals, pool.FeeTier)
     tick_index = ticks.to_dict('index')
+    print(liquidity)
+
+    import numpy as np
+    import plotly.express as px
+
+    bar_plot = ticks.copy()
+    bar_plot.reset_index(inplace=True)
+    bar_plot['color'] = np.where((bar_plot['tickIdx'] > pool.tick) & (bar_plot['tickIdx'] < pool.tick + {10000: 200, 3000: 60, 500: 10}[pool.FeeTier]), 'crimson', 'lightslategray')
+    bar_plot['diff'] = (bar_plot['Price1']/pool.token0Price) - 1
+    bar_plot = bar_plot[bar_plot['diff'].between(3000, 7000)]
+    bar_plot.sort_values("Price1", inplace=True)
+    fig = px.bar(bar_plot, x="Price1", y='Liquidity', color='color')
+    fig.show()
+
 
     simulator = MonteCarlo()
     simulator.sim(ohlc)
+    #simulator.line_graph()
     fees = []
     for col in simulator.simulations_dict:
         col_fees = []
@@ -74,25 +98,27 @@ def tv(pool, lowerprice, upperprice, amount0, amount1):
         fees.append(col_fees)
     
     Ils = []
+
     for col in simulator.simulations_dict:
         last_price = simulator.simulations_dict[col][-1]
         
-        upper = math.sqrt(upperprice * 10**6 / 10**18) * 2**96
-        lower = math.sqrt(lowerprice * 10**6 / 10**18) * 2**96
-        cprice = math.sqrt(1/last_price * 10**6 / 10**18) * 2**96
+        upper = math.sqrt(upperprice * 10**pool.t0decimals / 10**pool.t1decimals)
+        lower = math.sqrt(lowerprice * 10**pool.t0decimals / 10**pool.t1decimals)
+        cprice = math.sqrt(last_price * 10**pool.t0decimals / 10**pool.t1decimals)
 
         if cprice <= lower:
-            amt0_lp = liquidity / (upper * lower / 2**96) * (upper - lower) / 10**18
-            amt1_lp = 0
+            amt1_lp = liquidity * ((1/lower) - (1/upper)) 
+            amt0_lp = 0
         
         elif lower < cprice <= upper:
-            amt0_lp = liquidity / (upper * cprice / 2**96) * (upper - cprice) / 10**18
-            amt1_lp = liquidity / 2**96 * (cprice - lower) / 10**6
+            amt1_lp = liquidity * ((1/cprice) - (1/upper))
+            amt0_lp = liquidity * (cprice - lower) 
     
         elif upper < cprice:
-            amt1_lp = liquidity / 2**96 * (upper - lower)/ 10**6
-            amt0_lp = 0
+            amt1_lp = 0
+            amt0_lp = liquidity * (upper - lower)
+        
+        print(pool.token0Price, last_price, amt0_lp, amt1_lp)
+        Ils.append((amt0_lp)*1/last_price +  amt1_lp)
 
-        Ils.append((amt0_lp- amount0)*1/last_price +  amt1_lp - amount1)
-    
     return sum([sum(fee) + Il for Il, fee in zip(Ils, fees)]) / len(simulator.simulations_dict) 

@@ -7,7 +7,7 @@ import math
 
 
 class MonteCarlo:
-    def __init__(self, num_simulations=10000, predicted_days=24):
+    def __init__(self, num_simulations=10, predicted_days=24):
         self.num_simulations = num_simulations
         self.predicted_days = predicted_days
 
@@ -17,10 +17,9 @@ class MonteCarlo:
         ohlc.dropna(inplace=True)        
         
         returns = ohlc['returns']
-        prices = ohlc['Close'].values
-        
-        last_price = prices[-1]
-        
+        self.prices = ohlc['Close'].values
+
+        last_price = self.prices[-1]
         simulations = {}
  
         #Create Each Simulation as a Column in df

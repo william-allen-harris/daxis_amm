@@ -79,7 +79,7 @@ class UniswapV3Client(ABCContext):
 
     def _get_pool_ticks(self, pool_id, fee_tier, decimals0, decimals1):
         results = []
-        for skip in range(0, 100):
+        for skip in range(0, 5):
             current_skip = skip * 1000
             query = gql('{pool(id: "%s"){ticks(first: 1000, skip: %s){tickIdx liquidityNet liquidityGross}}}' % (pool_id, current_skip))
             current_info = self.client.execute(query)
@@ -107,9 +107,9 @@ class UniswapV3Client(ABCContext):
 
     def _get_pool_hour_data(self, pool_id):
         results = []
-        for skip in range(0, 1000):
+        for skip in range(0, 5):
             current_skip = skip * 1000
-            query = gql('{pool(id: "%s"){poolHourData(first: 1000, skip: %s){periodStartUnix close high low open}}}' % (pool_id, current_skip))
+            query = gql('{pool(id: "%s" orderDirection: desc){poolHourData(first: 1000, skip: %s){periodStartUnix close high low open}}}' % (pool_id, current_skip))
             current_info = self.client.execute(query)
             if len(current_info['pool']['poolHourData']) > 0:
                 results.extend([c for c in current_info['pool']['poolHourData'] if '0' not in c.values()])
@@ -117,7 +117,7 @@ class UniswapV3Client(ABCContext):
                 break
 
         df = pd.DataFrame(results)
-        df['close'] = pd.to_numeric(df['close'])
+        df['Close'] = pd.to_numeric(df['close'])
         df['datetime'] = pd.to_datetime(df['periodStartUnix'], unit='s')
         df.set_index('datetime', inplace=True)
 
@@ -145,6 +145,7 @@ class UniswapV3Client(ABCContext):
         return self._get_pool_info(token0_id, token1_id, fee_tier)['pools'][0]['id']
 
     def pool_tick(self, token0_id, token1_id, fee_tier):
+        print(self._get_pool_info(token0_id, token1_id, fee_tier))
         return int(self._get_pool_info(token0_id, token1_id, fee_tier)['pools'][0]['tick'])
 
     def pool_volumeUSD(self, token0_id, token1_id, fee_tier):
