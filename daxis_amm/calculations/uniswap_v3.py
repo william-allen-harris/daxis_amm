@@ -56,7 +56,8 @@ def lp_pool_value(liquidity: float, price: float, upper: float, lower: float) ->
 
     https://medium.com/auditless/impermanent-loss-in-uniswap-v3-6c7161d3b445
     """
-    return 2 * liquidity * math.sqrt(price) - liquidity * (math.sqrt(lower) + (price / math.sqrt(upper)))
+    return 2 * liquidity * math.sqrt(price) - liquidity * (math.sqrt(lower) +
+                                                           (price / math.sqrt(upper)))
 
 
 assert lp_pool_value(557.9599554712883, 2486.8, 2998.9,
