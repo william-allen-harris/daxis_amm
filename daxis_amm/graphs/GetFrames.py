@@ -3,7 +3,7 @@ from gql.transport.requests import RequestsHTTPTransport
 import pandas as pd
 import matplotlib.pyplot as plt
 import os.path
-from daxis_amm.pool import Pool
+from daxis_amm.instruments.uniswap_v3 import Pool
 #pd.set_option('display.max_rows', None)
 
 client = Client(

@@ -176,18 +176,21 @@ def tv(
     return sum([sum(fee) + Il for Il, fee in zip(Ils, fees)]) / len(simulator.simulations_dict)
 
 
-def liquidity_graph(ticks_df, token_0_price):
+def liquidity_graph(ticks_df, token_0_price, tick, fee_tier):
     """
     Create a graph of liquidity.
     """
+    import numpy as np
     bar_plot = ticks_df.copy()
     bar_plot.reset_index(inplace=True)
     bar_plot = bar_plot[bar_plot['Price0'].between(
         token_0_price*0.75, token_0_price*1.25)]
+    bar_plot['color'] = np.where((bar_plot['tickIdx'] > tick) & (bar_plot['tickIdx'] < tick + {10000: 200, 3000: 60, 500: 10}[fee_tier]), 'crimson', 'lightslategray')
     import plotly.graph_objs as go
     data = [go.Bar(
         x=bar_plot['Price0'].values,
         y=bar_plot['Liquidity'].values,
+        marker_color=bar_plot['color'].values
     )]
     fig = go.Figure(data=data)
     import plotly.io as pio

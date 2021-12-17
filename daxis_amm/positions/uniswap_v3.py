@@ -1,56 +1,11 @@
 """
-Module defining the Uniswap V3 Pool Class.
+Module defining the Uniswap V3 Liquidity Position Class.
 """
 from dataclasses import dataclass
-from pandas import DataFrame
 
 from daxis_amm.calculations import uniswap_v3
 from daxis_amm.calculations import montecarlo
-
-
-@dataclass
-class Pool:
-    """
-    Class representing a Uniswap V3 Pool.
-    """
-    poolID: str
-    liquidity: str
-    FeeTier: int
-    sqrtPrice: str
-    t0id: str
-    t0symbol: str
-    t0decimals: int
-    t1id: str
-    t1symbol: str
-    t1decimals: int
-    feeGrowthGlobal0X128: str
-    feeGrowthGlobal1X128: str
-    token0Price: float
-    token1Price: float
-    tick: int
-    observationIndex: str
-    volumeToken0: str
-    volumeToken1: str
-    volumeUSD: float
-    untrackedVolumeUSD: str
-    feesUSD: str
-    txCount: str
-    collectedFeesToken0: str
-    collectedFeesToken1: str
-    collectedFeesUSD: str
-    liquidityProviderCount: str
-    totalValueLockedUSD: str
-    totalValueLockedETH: str
-    totalValueLockedToken0: str
-    totalValueLockedToken1: str
-    OHLC_df: DataFrame
-    Ticks_df: DataFrame
-
-    def __str__(self):
-        return f'Uniswap V3 Pool -> {self.t0symbol}/{self.t1symbol} {self.FeeTier/10000}%'
-
-    def __repr__(self):
-        return f'Uniswap V3 Pool: {self.t0symbol}/{self.t1symbol} {self.FeeTier/10000}%'
+from daxis_amm.instruments.uniswap_v3 import Pool
 
 
 @dataclass
@@ -83,5 +38,4 @@ class UniswapV3LP:
 
     def graph_liquidity(self):
         "Graph the liquidity"
-        uniswap_v3.liquidity_graph(self.built_ticks(), self.pool.token0Price)
-
+        uniswap_v3.liquidity_graph(self.built_ticks(), self.pool.token0Price, self.pool.tick, self.pool.FeeTier)

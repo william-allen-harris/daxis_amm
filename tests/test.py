@@ -1,5 +1,5 @@
-from daxis_amm.GetFrames import GetFrames, GetIDs
-from daxis_amm.pool import UniswapV3LP
+from daxis_amm.graphs.GetFrames import GetFrames, GetIDs
+from daxis_amm.positions.uniswap_v3 import UniswapV3LP
 
 test_id = GetIDs(5, 0)
 pools = GetFrames(test_id, return_type='Object')
