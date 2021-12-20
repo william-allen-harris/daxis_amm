@@ -14,7 +14,8 @@ client = Client(
 
 token0Symbols = []
 token1Symbols = []
-ohlcFrames = []
+ohlc_hour_frames = []
+ohlc_day_frames = []
 ticksFrames = []
 poolIDs = []
 feeTier = 0
@@ -63,12 +64,13 @@ def GetFrames(poolIDs, return_type='DataFrame'):
     for id in poolIDs:
         print('\n'+token0Symbols[a]+'/'+token1Symbols[a]+' poolID: ' + str(id))
         skip = 0
-        ohlcList = []
+        ohlc_hour_list = []
+        ohlc_day_list = []
         ticksList = []
 
         while True:
             poolStr = '{pool(id: "'+id+'"){id feeTier liquidity sqrtPrice feeGrowthGlobal0X128 feeGrowthGlobal1X128 token0Price token1Price tick observationIndex volumeToken0 volumeToken1 volumeUSD untrackedVolumeUSD feesUSD txCount collectedFeesToken0 collectedFeesToken1 collectedFeesUSD liquidityProviderCount totalValueLockedUSD totalValueLockedETH totalValueLockedToken0 totalValueLockedToken1 token0{id symbol decimals}token1{id symbol decimals }poolHourData(first: 1000, skip: '+str(
-                skip)+'){periodStartUnix close high low open}ticks(first: 1000, skip: '+str(skip)+'){tickIdx liquidityNet liquidityGross}}}'
+                skip)+'){periodStartUnix close high low open feesUSD}ticks(first: 1000, skip: '+str(skip)+'){tickIdx liquidityNet liquidityGross}poolDayData(first: 1000, skip: '+str(skip)+'){date feesUSD}}}'
 
             while True:
                 try:
@@ -96,15 +98,23 @@ def GetFrames(poolIDs, return_type='DataFrame'):
                 open = float(poolInfo['pool']['poolHourData'][i]['open'])
                 periodStartUnix = poolInfo['pool']['poolHourData'][i]['periodStartUnix']
                 tempList = [close, high, low, open, periodStartUnix]
-                ohlcList.append(tempList)
+                ohlc_hour_list.append(tempList)
 
             if len(poolInfo['pool']['poolHourData']) > 0:
                 print(str(len(poolInfo['pool']['poolHourData'])) + ' OHLC added')
 
+            for i in range(len(poolInfo['pool']['poolDayData'])):
+                fees_usd = float(poolInfo['pool']['poolDayData'][i]['feesUSD'])
+                date = float(poolInfo['pool']['poolDayData'][i]['date'])
+                tempList = [date, fees_usd]
+                ohlc_day_list.append(tempList)
+
             if skip == 5000:
-                ohlcFrame = pd.DataFrame(ohlcList)
-                ohlcFrame.columns = ['Close', 'High', 'Low', 'Open', 'psUnix']
-                ohlcFrames.append(ohlcFrame)
+                ohlc_hour_frames = pd.DataFrame(ohlc_hour_list)
+                ohlc_hour_frames.columns = ['Close', 'High', 'Low', 'Open', 'psUnix']
+
+                ohlc_day_frames = pd.DataFrame(ohlc_day_list)
+                ohlc_day_frames.columns = ['Date', 'FeesUSD']
 
                 ticksFrame = pd.DataFrame(ticksList)
                 ticksFrame.columns = ['liquidityGross', 'liquidityNet', 'tickIdx']
@@ -129,7 +139,7 @@ def GetFrames(poolIDs, return_type='DataFrame'):
                 volumeToken1 = poolInfo['pool']['volumeToken1']
                 volumeUSD = float(poolInfo['pool']['volumeUSD'])
                 untrackedVolumeUSD = poolInfo['pool']['untrackedVolumeUSD']
-                feesUSD = poolInfo['pool']['feesUSD']
+                feesUSD = float(poolInfo['pool']['feesUSD'])
                 txCount = poolInfo['pool']['txCount']
                 collectedFeesToken0 = poolInfo['pool']['collectedFeesToken0']
                 collectedFeesToken1 = poolInfo['pool']['collectedFeesToken1']
@@ -145,7 +155,7 @@ def GetFrames(poolIDs, return_type='DataFrame'):
                     feeGrowthGlobal0X128, feeGrowthGlobal1X128, token0Price, token1Price, tick, observationIndex,
                     volumeToken0, volumeToken1, volumeUSD, untrackedVolumeUSD, feesUSD, txCount, collectedFeesToken0,
                     collectedFeesToken1, collectedFeesUSD, liquidityProviderCount, totalValueLockedUSD,
-                    totalValueLockedETH, totalValueLockedToken0, totalValueLockedToken1, ohlcFrame, ticksFrame]
+                    totalValueLockedETH, totalValueLockedToken0, totalValueLockedToken1, ohlc_hour_frames, ohlc_day_frames, ticksFrame]
                 dfList.append(tempList)
 
                 print('\n' + str(round((counter / len(poolIDs))*100, 2)) + '% complete')
@@ -166,7 +176,7 @@ def GetFrames(poolIDs, return_type='DataFrame'):
             't1decimals', 'feeGrowthGlobal0X128', 'feeGrowthGlobal1X128', 'token0Price', 'token1Price', 'tick',
             'observationIndex', 'volumeToken0', 'volumeToken1', 'volumeUSD', 'untrackedVolumeUSD', 'feesUSD', 'txCount',
             'collectedFeesToken0', 'collectedFeesToken1', 'collectedFeesUSD', 'liquidityProviderCount',
-            'totalValueLockedUSD', 'totalValueLockedETH', 'totalValueLockedToken0', 'totalValueLockedToken1', 'OHLC_df',
+            'totalValueLockedUSD', 'totalValueLockedETH', 'totalValueLockedToken0', 'totalValueLockedToken1', 'ohlc_hour_frames, ohlc_day_frames',
             'Ticks_df']
         print('Done!')
         return dfPools
@@ -187,7 +197,7 @@ def testPrint():
     print('\nEntry into "list of pools" DataFrame:')
     print(dfPools.loc[[0]])
     print('\nOHLC DataFrame:')
-    print(ohlcFrames[0])
+    print(ohlc_hour_frames[0])
     print('\nTicks DataFrame:')
     print(ticksFrames[0])
 

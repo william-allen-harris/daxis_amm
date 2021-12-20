@@ -5,6 +5,11 @@ import math
 from typing import Tuple
 
 import pandas as pd
+import numpy as np
+import plotly.io as pio
+import plotly.graph_objs as go
+
+from daxis_amm.calculations.montecarlo import MonteCarlo
 
 
 def deposit_amount(price_current: float,
@@ -74,15 +79,15 @@ def calculate_liquidity(amount_x: float,
     cprice = math.sqrt(price_current)
 
     if cprice <= lower:
-        return amount_x * (upper * lower) / (upper - lower)
+        return amount_y * (upper * lower) / (upper - lower)
 
-    elif lower < cprice <= upper:
-        liquidity0 = amount_x * (upper * cprice) / (upper - cprice)
-        liquidity1 = amount_y / (cprice - lower)
+    if lower < cprice <= upper:
+        liquidity0 = amount_y * (upper * cprice) / (upper - cprice)
+        liquidity1 = amount_x / (cprice - lower)
         return min(liquidity0, liquidity1)
 
-    elif upper < cprice:
-        return amount_y / (upper - lower)
+    if upper < cprice:
+        return amount_x / (upper - lower)
 
     raise Exception("Error in sqrt price comparison.")
 
@@ -94,12 +99,11 @@ def price_to_tick(price: float, decimals_x: int, decimals_y: int) -> int:
     return math.floor(math.log(1/price * (10**decimals_y) / (10**decimals_x)) / math.log(1.0001))
 
 
-def tick_to_price(tick: int, decimals_x: int, decimals_y: int) -> dict[str, float]:
+def tick_to_price(tick: int, decimals_x: int, decimals_y: int) -> float:
     """
-    Convert a tick value to prices.
+    Convert a tick value to prices. Returns Price1.
     """
-    token1_price = 1.0001**(tick) * (10**decimals_x) / (10**decimals_y)
-    return {'token0_price': 1/token1_price, 'token1_price': token1_price}
+    return 1.0001**(tick) * (10**decimals_x) / (10**decimals_y)
 
 
 def tick_spacing(fee_tier: int) -> int:
@@ -109,58 +113,64 @@ def tick_spacing(fee_tier: int) -> int:
     return {10000: 200, 3000: 60, 500: 10}[fee_tier]
 
 
-def build_ticks(ticks_df: pd.DataFrame, decimals_x: int, decimals_y: int, fee_tier: int):
+def build_ticks(ticks_df: pd.DataFrame, decimals_x: int, decimals_y: int, fee_tier: int) -> pd.DataFrame:
     """
     The input tick_data from the Uniswap_v3 subgraph is scaled by the two tokens decimals.
 
     Thus:
         L = Liquidity_{from sub-graph} * 10 ** (decimals_x-decimals_y).
 
-    To get in the same form as the return value for calculate_liquidity multiple all liquidity values by 10 ^ (decimals_x-decimals_y).
+    To get in the same form as the return value for calculate_liquidity 
+    multiple all liquidity values by 10 ^ (decimals_x-decimals_y).
     https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf
     """
-    ticks_df = ticks_df.sort_values("tickIdx", ascending=False)
-    tick_list = ticks_df.to_dict('records')
+    ticks_df = ticks_df.sort_values("tickIdx").set_index('tickIdx')
+    ticks_df['Liquidity'] = ticks_df.liquidityNet.cumsum()
+    max_tick = ticks_df.index.max()
+    min_tick = ticks_df.index.min()
 
-    for i in range(len(tick_list)):
-        if i == 0:
-            tick_list[i]['liquidity'] = int(tick_list[i]['liquidityGross'])
-        else:
-            tick_list[i]['liquidity'] = tick_list[i-1]['liquidity'] - \
-                int(tick_list[i]['liquidityNet'])
+    tick_range = list(range(min_tick, max_tick, tick_spacing(fee_tier)))
+    output_df = pd.DataFrame(tick_range, columns=['tickIdx'])
+    output_df['Price1'] = output_df.tickIdx.apply(lambda x: tick_to_price(x, decimals_x, decimals_y))
+    output_df['Price0'] = output_df.Price1 ** (-1)
+    output_df['Liquidity'] = output_df.tickIdx.map(ticks_df['Liquidity']).ffill()
+    output_df['Liquidity'] *= 10**(decimals_x-decimals_y)
+    output_df.set_index('tickIdx', inplace=True)
 
-    tick_index = {int(tick['tickIdx']): int(tick['liquidity'])
-                  for tick in tick_list}
-    tick_list = []
-    for tick in range(min(tick_index), max(tick_index), tick_spacing(fee_tier)):
-        prices = tick_to_price(tick, decimals_x, decimals_y)
-        liquidity = tick_index[tick] if tick in tick_index else tick_list[-1][3]
-        tick_list.append([tick, prices['token0_price'],
-                         prices['token1_price'], liquidity])
-
-    df = pd.DataFrame(tick_list, columns=[
-                      'tickIdx', 'Price0', 'Price1', 'Liquidity'])
-    df.set_index('tickIdx', inplace=True)
-    df['Liquidity'] = df.Liquidity * 10**(decimals_x-decimals_y)
-    return df
+    return output_df
 
 
-def tv(
-    simulator, ohlc_df, ticks_df, token_0_price, token_0_lowerprice, token_0_upperprice,
-        amount0, amount1, volume_usd, fee_tier, t0_decimals, t1_decimals):
+def tv(simulator: MonteCarlo,
+       ohlc_df: pd.DataFrame,
+       ohlc_day_df: pd.DataFrame,
+       built_ticks_df: pd.DataFrame,
+       token_0_price: float,
+       token_0_lowerprice: float,
+       token_0_upperprice: float,
+       amount0: float,
+       amount1: float,
+       fee_tier: int,
+       t0_decimals: int,
+       t1_decimals: int) -> float:
     """
     Calcualte the Theoretical value of a Liquidity Position.
     """
-    ohlc = ohlc_df.copy().iloc[-3*24:]
+    ohlc = ohlc_df.copy().tail(3*24)
 
-    average_hr_fees = volume_usd * (fee_tier/1000000) / 24
-
+    average_hr_fees = ohlc_day_df.copy().tail(5)['FeesUSD'].mean() / 24
+    print(ohlc_day_df.tail(5))
+    print(average_hr_fees)
     liquidity = calculate_liquidity(
         amount0, amount1, token_0_price, token_0_lowerprice, token_0_upperprice)
-    ticks = build_ticks(ticks_df, t0_decimals, t1_decimals, fee_tier)
+    print(liquidity)
+    ticks = build_ticks(built_ticks_df, t0_decimals, t1_decimals, fee_tier)
     tick_index = ticks.to_dict('index')
 
     simulator.sim(ohlc)
+    ohlc_day_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_day_df.csv')
+    #ohlc_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_df.csv')
+    #built_ticks_df.to_csv('/workspaces/daxis_amm/tests/data/built_ticks_df.csv')
+    #print(token_0_price, token_0_lowerprice, token_0_upperprice, amount0, amount1, volume_usd, fee_tier, t0_decimals, t1_decimals)
     fees = []
     for col in simulator.simulations_dict:
         col_fees = []
@@ -171,37 +181,34 @@ def tv(
             tick_liquidity = tick_index[closest_tick_spacing]['Liquidity']
             average_fee_revenue = (liquidity/tick_liquidity) * average_hr_fees
             col_fees.append(average_fee_revenue)
-        fees.append(col_fees)
-
+        fees.append(sum(col_fees))
+    print(fees)
     Ils = []
     for col in simulator.simulations_dict:
         last_price = simulator.simulations_dict[col][-1]
+        print(liquidity, last_price, token_0_lowerprice, token_0_upperprice)
         sim_liq = lp_pool_value(liquidity, last_price,
                                 token_0_lowerprice, token_0_upperprice)
         Ils.append(sim_liq)
+    print(Ils)
+    return sum([fee + Il for Il, fee in zip(Ils, fees)]) / len(simulator.simulations_dict)
 
-    return sum([sum(fee) + Il for Il, fee in zip(Ils, fees)]) / len(simulator.simulations_dict)
 
-
-def liquidity_graph(ticks_df, token_0_price, tick, fee_tier):
+def liquidity_graph(built_ticks_df: pd.DataFrame, token_0_price: float, tick: int, fee_tier: int) -> None:
     """
     Create a graph of liquidity.
     """
-    import numpy as np
-    bar_plot = ticks_df.copy()
+    bar_plot = built_ticks_df.copy()
     bar_plot.reset_index(inplace=True)
     bar_plot = bar_plot[bar_plot['Price0'].between(
         token_0_price*0.75, token_0_price*1.25)]
     bar_plot['color'] = np.where((bar_plot['tickIdx'] > tick) &
                                  (bar_plot['tickIdx'] < tick + tick_spacing(fee_tier)),
                                  'crimson', 'lightslategray')
-    import plotly.graph_objs as go
     data = [go.Bar(
         x=bar_plot['Price0'].values,
         y=bar_plot['Liquidity'].values,
         marker_color=bar_plot['color'].values
     )]
     fig = go.Figure(data=data)
-    import plotly.io as pio
-
     pio.show(fig)

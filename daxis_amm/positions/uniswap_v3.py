@@ -26,9 +26,9 @@ class UniswapV3LP:
     def tv(self, simulator=montecarlo.MonteCarlo()):
         "Calculate the Theorical Value of the LP."
         amount0, amount1 = self.deposit_amounts()
-        return uniswap_v3.tv(simulator, self.pool.OHLC_df, self.pool.Ticks_df, self.pool.
+        return uniswap_v3.tv(simulator, self.pool.OHLC_df, self.pool.OHLC_day_df, self.pool.Ticks_df, self.pool.
                              token0Price, self.token_0_min_price, self.token_0_max_price, amount0,
-                             amount1, self.pool.volumeUSD, self.pool.FeeTier, self.pool.t0decimals,
+                             amount1, self.pool.FeeTier, self.pool.t0decimals,
                              self.pool.t1decimals)
 
     def built_ticks(self):

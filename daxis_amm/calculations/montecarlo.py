@@ -13,6 +13,8 @@ class MonteCarlo:
     def __init__(self, num_simulations=10, predicted_days=24):
         self.num_simulations = num_simulations
         self.predicted_days = predicted_days
+        self.simulation_df = None
+        self.simulations_dict = None
 
     def sim(self, input_ohlc):
         ohlc = input_ohlc.copy()

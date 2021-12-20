@@ -34,7 +34,7 @@
 		"python.testing.pytestEnabled": true,
 		"python.testing.unittestEnabled": true,
 		"python.languageServer": "Pylance",
-		"python.analysis.typeCheckingMode": "strict",
+		"python.analysis.typeCheckingMode":"basic",
 		"autoDocstring.docstringFormat": "sphinx",
 		"autoDocstring.startOnNewLine": true,
 		"python.formatting.provider":"autopep8",
@@ -52,7 +52,8 @@
 			"**/.DS_Store": true,
 			"**/Thumbs.db": true,
 			"**/__pycache__/**": true,
-			"**/.mypy_cache": true
+			"**/.mypy_cache": true,
+			"**/.pytest_cache": true
 		}
 	},
 	// Add the IDs of extensions you want installed when the container is created.

@@ -30,7 +30,7 @@ class Pool:
     volumeToken1: str
     volumeUSD: float
     untrackedVolumeUSD: str
-    feesUSD: str
+    feesUSD: float
     txCount: str
     collectedFeesToken0: str
     collectedFeesToken1: str
@@ -41,6 +41,7 @@ class Pool:
     totalValueLockedToken0: str
     totalValueLockedToken1: str
     OHLC_df: DataFrame
+    OHLC_day_df: DataFrame
     Ticks_df: DataFrame
 
     def __str__(self):
