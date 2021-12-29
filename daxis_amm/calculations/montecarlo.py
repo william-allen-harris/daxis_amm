@@ -43,9 +43,9 @@ class MonteCarlo:
             simulations[x] = price_series
 
         self.simulations_dict = simulations
-        #import json
-        #with open('tests/data/simulation_df.json', 'w') as f:
-        #    json.dump(simulations, f)
+        import json
+        with open('tests/data/simulation_df.json', 'w') as f:
+            json.dump(simulations, f)
         self.simulation_df = pd.DataFrame(simulations)
 
     def brownian_motion(self):

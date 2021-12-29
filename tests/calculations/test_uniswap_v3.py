@@ -103,9 +103,12 @@ class TestUniswapV3(TestCase):
         fee_tier = 500
         t0_decimals = 6
         t1_decimals = 18
+        ethPriceUSD = 3815.8029979140315
+        t0derivedETH = 1/3815.8029979140315
 
         tv = uniswap_v3.tv(MockMonteCarlo('usdc_weth_500'), ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price,
-                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals)
+                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals,
+                           ethPriceUSD, t0derivedETH)
         self.assertAlmostEqual(tv, 954.9359388210878)
 
     def test_tv_token_1_stable(self):
@@ -123,7 +126,33 @@ class TestUniswapV3(TestCase):
         fee_tier = 500
         t0_decimals = 18
         t1_decimals = 6
+        ethPriceUSD = 1/0.0002622689648836899
+        t0derivedETH = 1
 
         tv = uniswap_v3.tv(MockMonteCarlo('weth_usdt_500'), ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price,
-                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals)
-        self.assertAlmostEqual(tv, 1054.844324697902)
+                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals,
+                           ethPriceUSD, t0derivedETH)
+        self.assertAlmostEqual(tv, 1065.011664654374)
+
+    def test_tv_token_1_etherum(self):
+        "Test Theorical Value"
+        built_ticks_df = pd.read_csv("tests/data/wbtc_weth_3000/built_ticks_df.csv", index_col=0)
+        ohlc_hour_df = pd.read_csv("tests/data/wbtc_weth_3000/ohlc_hour_df.csv", index_col=0)
+        ohlc_day_df = pd.read_csv("tests/data/wbtc_weth_3000/ohlc_day_df.csv", index_col=0)
+        token_0_price = 0.07928533775940265
+        token_0_lowerprice = 0.07532107087143251 
+        token_0_upperprice = 0.08324960464737279
+        amount0 = 0.005229806233748243
+        amount1 = 0.06278198525682302
+        token0 = 'WBTC'
+        token1 = 'WETH'
+        fee_tier = 3000
+        t0_decimals = 8
+        t1_decimals = 18
+        ethPriceUSD = 3790.070521531456
+        t0derivedETH = 12.612672509948505
+
+        tv = uniswap_v3.tv(MockMonteCarlo('wbtc_weth_3000'), ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price,
+                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals,
+                           ethPriceUSD, t0derivedETH)
+        self.assertAlmostEqual(tv, 487.15271873601296)

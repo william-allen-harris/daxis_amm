@@ -158,7 +158,9 @@ def tv(simulator: MonteCarlo,
        amount1: float,
        fee_tier: int,
        t0_decimals: int,
-       t1_decimals: int) -> float:
+       t1_decimals: int,
+       ethPriceUSD: float,
+       t0derivedETH: float) -> float:
     """
     Calcualte the Theoretical value of a Liquidity Position.
     """
@@ -170,15 +172,15 @@ def tv(simulator: MonteCarlo,
     tick_index = ticks.to_dict('index')
 
     simulator.sim(ohlc)
-    # ohlc_day_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_day_df.csv')
-    # ohlc_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_df.csv')
-    # built_ticks_df.to_csv('/workspaces/daxis_amm/tests/data/built_ticks_df.csv')
+    ohlc_day_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_day_df.csv')
+    ohlc_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_df.csv')
+    built_ticks_df.to_csv('/workspaces/daxis_amm/tests/data/built_ticks_df.csv')
 
     fees = []
     imperminant_loss = []
 
     for col in simulator.simulations_dict:
-        
+
         # Calculate the Accrued Fees.
         col_fees = []
         for node in simulator.simulations_dict[col]:
@@ -192,18 +194,11 @@ def tv(simulator: MonteCarlo,
         # Calculate the Imperminant Loss.
         last_price = simulator.simulations_dict[col][-1]
         sim_liq = lp_pool_value(liquidity, last_price, token_0_lowerprice, token_0_upperprice)
-
-        if Stables.has_member_key(token_0):
-            pass
-
-        elif Stables.has_member_key(token_1):
-            sim_liq *= 1/last_price
-
-        else:
-            raise Exception("UNABLE TO PRICE NON-STABLE PAIRS!")
+        sim_liq *= ethPriceUSD * t0derivedETH
 
         imperminant_loss.append(sim_liq)
 
+    # Return the average.
     return sum([fee + imp for imp, fee in zip(imperminant_loss, fees)]) / len(simulator.simulations_dict)
 
 

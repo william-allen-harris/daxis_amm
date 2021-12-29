@@ -17,9 +17,11 @@ class Pool:
     t0id: str
     t0symbol: str
     t0decimals: int
+    t0derivedETH: float
     t1id: str
     t1symbol: str
     t1decimals: int
+    t1derivedETH: float
     feeGrowthGlobal0X128: str
     feeGrowthGlobal1X128: str
     token0Price: float
@@ -40,12 +42,13 @@ class Pool:
     totalValueLockedETH: str
     totalValueLockedToken0: str
     totalValueLockedToken1: str
+    ethPriceUSD: float
     OHLC_df: DataFrame
     OHLC_day_df: DataFrame
     Ticks_df: DataFrame
 
     def __str__(self):
-        return f'Uniswap V3 Pool -> {self.t0symbol}/{self.t1symbol} {self.FeeTier/10000}%'
+        return f'Uniswap V3 Pool {self.poolID}-> {self.t0symbol}/{self.t1symbol} {self.FeeTier/10000}%'
 
     def __repr__(self):
-        return f'Uniswap V3 Pool: {self.t0symbol}/{self.t1symbol} {self.FeeTier/10000}%'
+        return f'Uniswap V3 Pool {self.poolID}: {self.t0symbol}/{self.t1symbol} {self.FeeTier/10000}%'
