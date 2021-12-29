@@ -10,6 +10,17 @@ from daxis_amm.calculations import uniswap_v3
 from daxis_amm.calculations.montecarlo import MonteCarlo
 
 
+class MockMonteCarlo(MonteCarlo):
+    "Mock MonteCarlo Simulator"
+
+    def __init__(self, name) -> None:
+        with open(f'tests/data/{name}/simulation_df.json',) as file:
+            self.simulations_dict = json.load(file)
+
+    def sim(self, ohlc):
+        pass
+
+
 class TestUniswapV3(TestCase):
     "Test all functions in the calculations.uniswap_v3 module."
 
@@ -71,34 +82,48 @@ class TestUniswapV3(TestCase):
         "Test build ticks"
         ticks_df = pd.read_csv("tests/data/ticks.csv.gz", index_col=0)
         built_ticks_results = pd.read_csv("tests/data/built_ticks_results.csv.gz", index_col=0)
+        token0 = 'USDC'
+        token1 = 'WETH'
 
-        built_ticks = uniswap_v3.build_ticks(ticks_df, 6, 18, 500)
+        built_ticks = uniswap_v3.build_ticks(ticks_df, token0, token1, 6, 18, 500)
         assert_frame_equal(built_ticks, built_ticks_results, check_dtype=False)
 
-    def test_tv(self):
+    def test_tv_token_0_stable(self):
         "Test Theorical Value"
-        built_ticks_df = pd.read_csv("tests/data/built_ticks_df.csv", index_col=0)
-        ohlc_df = pd.read_csv("tests/data/ohlc_df.csv", index_col=0)
-        token_0_price = 3949.372267704334
-        token_0_lowerprice = 3554.4350409339004
-        token_0_upperprice = 4344.309494474767
-        amount0 = 509.36
-        amount1 = 0.13
-        volume_usd = 1093571188.0
+        built_ticks_df = pd.read_csv("tests/data/usdc_weth_500/built_ticks_df.csv", index_col=0)
+        ohlc_hour_df = pd.read_csv("tests/data/usdc_weth_500/ohlc_hour_df.csv", index_col=0)
+        ohlc_day_df = pd.read_csv("tests/data/usdc_weth_500/ohlc_day_df.csv", index_col=0)
+        token_0_price = 3815.8029979140315
+        token_0_lowerprice = 3434.2226981226286
+        token_0_upperprice = 4197.383297705435
+        amount0 = 500.0
+        amount1 = 0.11883039444280304
+        token0 = 'USDC'
+        token1 = 'WETH'
         fee_tier = 500
         t0_decimals = 6
         t1_decimals = 18
 
-        class MockMonteCarlo(MonteCarlo):
-            "Mock MonteCarlo Simulator"
+        tv = uniswap_v3.tv(MockMonteCarlo('usdc_weth_500'), ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price,
+                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals)
+        self.assertAlmostEqual(tv, 954.9359388210878)
 
-            def __init__(self) -> None:
-                with open('tests/data/simulation_df.json',) as file:
-                    self.simulations_dict = json.load(file)
+    def test_tv_token_1_stable(self):
+        "Test Theorical Value"
+        built_ticks_df = pd.read_csv("tests/data/weth_usdt_500/built_ticks_df.csv", index_col=0)
+        ohlc_hour_df = pd.read_csv("tests/data/weth_usdt_500/ohlc_hour_df.csv", index_col=0)
+        ohlc_day_df = pd.read_csv("tests/data/weth_usdt_500/ohlc_day_df.csv", index_col=0)
+        token_0_price = 0.0002622689648836899
+        token_0_lowerprice = 0.0002360420683953209
+        token_0_upperprice = 0.0002884958613720589
+        amount0 = 0.1446017094995115
+        amount1 = 500.0
+        token0 = 'WETH'
+        token1 = 'USDT'
+        fee_tier = 500
+        t0_decimals = 18
+        t1_decimals = 6
 
-            def sim(self, ohlc):
-                pass
-
-        tv = uniswap_v3.tv(MockMonteCarlo(), ohlc_df, built_ticks_df, token_0_price, token_0_lowerprice,
-                           token_0_upperprice, amount0, amount1, volume_usd, fee_tier, t0_decimals, t1_decimals)
-        self.assertAlmostEqual(tv, 254611.3753428248)
+        tv = uniswap_v3.tv(MockMonteCarlo('weth_usdt_500'), ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price,
+                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals)
+        self.assertAlmostEqual(tv, 1054.844324697902)

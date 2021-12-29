@@ -10,6 +10,7 @@ import plotly.io as pio
 import plotly.graph_objs as go
 
 from daxis_amm.calculations.montecarlo import MonteCarlo
+from daxis_amm.enums import Stables
 
 
 def deposit_amount(price_current: float,
@@ -57,7 +58,7 @@ def deposit_amount(price_current: float,
 
 def lp_pool_value(liquidity: float, price_current: float, price_low: float, price_high: float) -> float:
     """
-    Calculate the value of a uniswap v3 liquidity position in terms of asset Y.
+    Calculate the value of a uniswap v3 liquidity position in terms of asset X.
 
     https://medium.com/auditless/impermanent-loss-in-uniswap-v3-6c7161d3b445
     """
@@ -113,19 +114,24 @@ def tick_spacing(fee_tier: int) -> int:
     return {10000: 200, 3000: 60, 500: 10}[fee_tier]
 
 
-def build_ticks(ticks_df: pd.DataFrame, decimals_x: int, decimals_y: int, fee_tier: int) -> pd.DataFrame:
+def build_ticks(ticks_df: pd.DataFrame, token_x: str, token_y: str, decimals_x: int, decimals_y: int, fee_tier: int) -> pd.DataFrame:
     """
     The input tick_data from the Uniswap_v3 subgraph is scaled by the two tokens decimals.
 
     Thus:
         L = Liquidity_{from sub-graph} * 10 ** (decimals_x-decimals_y).
 
-    To get in the same form as the return value for calculate_liquidity 
+    To get in the same form as the return value for calculate_liquidity
     multiple all liquidity values by 10 ^ (decimals_x-decimals_y).
+    This is subjective to the following symbol token names:
+        tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
+
+    https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol#L41
     https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf
     """
     ticks_df = ticks_df.sort_values("tickIdx").set_index('tickIdx')
-    ticks_df['Liquidity'] = ticks_df.liquidityNet.cumsum()
+    offset = decimals_x-decimals_y if token_x < token_y else decimals_y-decimals_x
+    ticks_df['Liquidity'] = ticks_df.liquidityNet.cumsum() * 10**(offset)
     max_tick = ticks_df.index.max()
     min_tick = ticks_df.index.min()
 
@@ -134,7 +140,6 @@ def build_ticks(ticks_df: pd.DataFrame, decimals_x: int, decimals_y: int, fee_ti
     output_df['Price1'] = output_df.tickIdx.apply(lambda x: tick_to_price(x, decimals_x, decimals_y))
     output_df['Price0'] = output_df.Price1 ** (-1)
     output_df['Liquidity'] = output_df.tickIdx.map(ticks_df['Liquidity']).ffill()
-    output_df['Liquidity'] *= 10**(decimals_x-decimals_y)
     output_df.set_index('tickIdx', inplace=True)
 
     return output_df
@@ -147,6 +152,8 @@ def tv(simulator: MonteCarlo,
        token_0_price: float,
        token_0_lowerprice: float,
        token_0_upperprice: float,
+       token_0: str,
+       token_1: str,
        amount0: float,
        amount1: float,
        fee_tier: int,
@@ -157,41 +164,47 @@ def tv(simulator: MonteCarlo,
     """
     ohlc = ohlc_df.copy().tail(3*24)
 
-    average_hr_fees = ohlc_day_df.copy().tail(5)['FeesUSD'].mean() / 24
-    print(ohlc_day_df.tail(5))
-    print(average_hr_fees)
-    liquidity = calculate_liquidity(
-        amount0, amount1, token_0_price, token_0_lowerprice, token_0_upperprice)
-    print(liquidity)
-    ticks = build_ticks(built_ticks_df, t0_decimals, t1_decimals, fee_tier)
+    average_hr_fees = ohlc_day_df.copy().tail(5)['FeesUSD'].mean()
+    liquidity = calculate_liquidity(amount0, amount1, token_0_price, token_0_lowerprice, token_0_upperprice)
+    ticks = build_ticks(built_ticks_df, token_0, token_1, t0_decimals, t1_decimals, fee_tier)
     tick_index = ticks.to_dict('index')
 
     simulator.sim(ohlc)
-    ohlc_day_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_day_df.csv')
-    #ohlc_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_df.csv')
-    #built_ticks_df.to_csv('/workspaces/daxis_amm/tests/data/built_ticks_df.csv')
-    #print(token_0_price, token_0_lowerprice, token_0_upperprice, amount0, amount1, volume_usd, fee_tier, t0_decimals, t1_decimals)
+    # ohlc_day_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_day_df.csv')
+    # ohlc_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_df.csv')
+    # built_ticks_df.to_csv('/workspaces/daxis_amm/tests/data/built_ticks_df.csv')
+
     fees = []
+    imperminant_loss = []
+
     for col in simulator.simulations_dict:
+        
+        # Calculate the Accrued Fees.
         col_fees = []
         for node in simulator.simulations_dict[col]:
             tick = price_to_tick(node, t0_decimals, t1_decimals)
-            closest_tick_spacing = tick - \
-                tick % tick_spacing(fee_tier)
+            closest_tick_spacing = tick - tick % tick_spacing(fee_tier)
             tick_liquidity = tick_index[closest_tick_spacing]['Liquidity']
-            average_fee_revenue = (liquidity/tick_liquidity) * average_hr_fees
+            average_fee_revenue = (liquidity/tick_liquidity) * average_hr_fees / 24
             col_fees.append(average_fee_revenue)
         fees.append(sum(col_fees))
-    print(fees)
-    Ils = []
-    for col in simulator.simulations_dict:
+
+        # Calculate the Imperminant Loss.
         last_price = simulator.simulations_dict[col][-1]
-        print(liquidity, last_price, token_0_lowerprice, token_0_upperprice)
-        sim_liq = lp_pool_value(liquidity, last_price,
-                                token_0_lowerprice, token_0_upperprice)
-        Ils.append(sim_liq)
-    print(Ils)
-    return sum([fee + Il for Il, fee in zip(Ils, fees)]) / len(simulator.simulations_dict)
+        sim_liq = lp_pool_value(liquidity, last_price, token_0_lowerprice, token_0_upperprice)
+
+        if Stables.has_member_key(token_0):
+            pass
+
+        elif Stables.has_member_key(token_1):
+            sim_liq *= 1/last_price
+
+        else:
+            raise Exception("UNABLE TO PRICE NON-STABLE PAIRS!")
+
+        imperminant_loss.append(sim_liq)
+
+    return sum([fee + imp for imp, fee in zip(imperminant_loss, fees)]) / len(simulator.simulations_dict)
 
 
 def liquidity_graph(built_ticks_df: pd.DataFrame, token_0_price: float, tick: int, fee_tier: int) -> None:
