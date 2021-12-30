@@ -116,7 +116,7 @@ class TestUniswapV3(TestCase):
             "breakdown",
         )
         self.assertAlmostEqual(tv["Fees USD"].mean(), 1.7592059904271529, places=2)
-        self.assertAlmostEqual(tv["Imperminant Loss USD"].mean(), 953.1767093262931, places=2)
+        self.assertAlmostEqual(tv["Deposit Amounts USD"].mean(), 953.1767093262931, places=2)
 
     def test_tv_token_1_stable(self):
         "Test Theorical Value"
@@ -162,7 +162,7 @@ class TestUniswapV3(TestCase):
             "breakdown",
         )
         self.assertAlmostEqual(tv["Fees USD"].mean(), 10.164602227734377, places=2)
-        self.assertAlmostEqual(tv["Imperminant Loss USD"].mean(), 1044.6770319594814, places=2)
+        self.assertAlmostEqual(tv["Deposit Amounts USD"].mean(), 1044.6770319594814, places=2)
 
     @skip("Still need to develop.")
     def test_tv_token_1_etherum(self):
@@ -207,4 +207,4 @@ class TestUniswapV3(TestCase):
             "breakdown",
         )
         self.assertAlmostEqual(tv["Fees USD"].mean(), 1.0751387330063196, places=2)
-        self.assertAlmostEqual(tv["Imperminant Loss USD"].mean(), 976.9403872979935, places=2)
+        self.assertAlmostEqual(tv["Deposit Amounts USD"].mean(), 976.9403872979935, places=2)

@@ -8,7 +8,7 @@ from daxis_amm.instruments.uniswap_v3 import Pool
 
 client = Client(
     transport=RequestsHTTPTransport(
-        url='https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3',
+        url='https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3', #'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
         verify=True,
         retries=5))
 

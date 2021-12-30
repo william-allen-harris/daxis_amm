@@ -182,7 +182,7 @@ def tv(
     """
     unix_3_delay = unix_timestamp - (3 * 24 * 60 * 60)
     unix_5_delay = unix_timestamp - (5 * 24 * 60 * 60)
-    
+
     if ohlc_df.psUnix.max() < unix_3_delay:
         raise Exception("No OHLC hour data available")
 
@@ -207,7 +207,7 @@ def tv(
     # built_ticks_df.to_csv('/workspaces/daxis_amm/tests/data/built_ticks_df.csv')
 
     fees = []
-    imperminant_loss_usd = []
+    depsoit_amounts_usd = []
 
     for col in simulator.simulations_dict:
 
@@ -233,16 +233,16 @@ def tv(
             # sim_liq = x_delta * ethPriceUSD * t0derivedETH + y_delta * ethPriceUSD * t1derivedETH
             raise Exception("Unable to price non-stable pairs.")
 
-        imperminant_loss_usd.append(sim_liq)
-    #print(x_delta, y_delta, last_price, token_0_lowerprice, token_0_upperprice)
+        depsoit_amounts_usd.append(sim_liq)
+    # print(x_delta, y_delta, last_price, token_0_lowerprice, token_0_upperprice)
 
-    totals = [fee + imp for imp, fee in zip(imperminant_loss_usd, fees)]
+    tvs = [fee + imp for imp, fee in zip(depsoit_amounts_usd, fees)]
 
     if return_type == "breakdown":
-        return pd.DataFrame({"Fees USD": fees, "Imperminant Loss USD": imperminant_loss_usd, "TV": totals}, dtype=np.float64)
+        return pd.DataFrame({"Fees USD": fees, "Deposit Amounts USD": depsoit_amounts_usd, "TV": tvs}, dtype=np.float64)
 
     elif return_type == "sum":
-        return sum(totals) / len(simulator.simulations_dict)
+        return sum(tvs) / len(simulator.simulations_dict)
 
 
 def liquidity_graph(built_ticks_df: pd.DataFrame, token_0_price: float, tick: int, fee_tier: int) -> None:

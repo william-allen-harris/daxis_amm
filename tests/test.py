@@ -17,8 +17,8 @@ def get_first_ids_that_have_stable_pairs(first):
     return [value for key, value in test_ids.items() if any([stable in key for stable in stables])]
 
 
-ids = get_first_ids_that_have_stable_pairs(100)
-pools = GetFrames(ids, return_type="Object")
+ids = get_first_ids_that_have_stable_pairs(3)
+pools = GetFrames(GetIDs(5, 0), return_type="Object")
 
 for pool in pools:
     try:
