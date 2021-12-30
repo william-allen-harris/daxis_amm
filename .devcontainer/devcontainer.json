@@ -34,15 +34,14 @@
 		"python.testing.pytestEnabled": true,
 		"python.testing.unittestEnabled": true,
 		"python.languageServer": "Pylance",
-		"python.analysis.typeCheckingMode":"basic",
+		"python.analysis.typeCheckingMode": "basic",
 		"autoDocstring.docstringFormat": "sphinx",
 		"autoDocstring.startOnNewLine": true,
-		"python.formatting.provider":"autopep8",
+		"python.formatting.provider": "black",
 		"editor.formatOnSave": true,
-		"python.formatting.autopep8Args": [
-			"--max-line-length",
+		"python.formatting.blackArgs": [
+			"--line-length",
 			"130",
-			"--experimental"
 		],
 		"files.exclude": {
 			"**/.git": true,

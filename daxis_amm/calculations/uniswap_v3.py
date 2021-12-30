@@ -14,12 +14,9 @@ from daxis_amm.calculations.montecarlo import MonteCarlo
 from daxis_amm.enums import Stables
 
 
-def get_deposit_amounts(price_current: float,
-                        price_low: float,
-                        price_high: float,
-                        price_usd_x: float,
-                        price_usd_y: float,
-                        target_amounts: float) -> Tuple[float, float]:
+def get_deposit_amounts(
+    price_current: float, price_low: float, price_high: float, price_usd_x: float, price_usd_y: float, target_amounts: float
+) -> Tuple[float, float]:
     """
     Get the deposit amounts for an LP position
 
@@ -32,27 +29,24 @@ def get_deposit_amounts(price_current: float,
     delta_l = target_amounts / ((sqrt_price - sqrt_lower) * price_usd_y + (1 / sqrt_price - 1 / sqrt_upper) * price_usd_x)
 
     delta_y = delta_l * (sqrt_price - sqrt_lower)
-    if (delta_y * price_usd_y < 0):
+    if delta_y * price_usd_y < 0:
         delta_y = 0
 
-    if (delta_y * price_usd_y > target_amounts):
+    if delta_y * price_usd_y > target_amounts:
         delta_y = target_amounts / price_usd_y
 
     delta_x = delta_l * (1 / sqrt_price - 1 / sqrt_upper)
-    if (delta_x * price_usd_x < 0):
+    if delta_x * price_usd_x < 0:
         delta_x = 0
-    if (delta_x * price_usd_x > target_amounts):
+    if delta_x * price_usd_x > target_amounts:
         delta_x = target_amounts / price_usd_x
 
     return delta_x, delta_y
 
 
-def amounts_delta(liquidity: float,
-                  price_current: float,
-                  price_low: float,
-                  price_high: float,
-                  decimals_x: int,
-                  decimals_y: int) -> Tuple[float, float]:
+def amounts_delta(
+    liquidity: float, price_current: float, price_low: float, price_high: float, decimals_x: int, decimals_y: int
+) -> Tuple[float, float]:
     """
     Calculate the value of a uniswap v3 liquidity position.
 
@@ -62,8 +56,8 @@ def amounts_delta(liquidity: float,
     upper = get_sqrt_price_x96(price_low, decimals_x, decimals_y)
     cprice = get_sqrt_price_x96(price_current, decimals_x, decimals_y)
 
-    x_delta = liquidity * (upper - cprice) / (cprice * upper / 2**(96))
-    y_delta = liquidity / 2**(96) * (cprice - lower)
+    x_delta = liquidity * (upper - cprice) / (cprice * upper / 2 ** (96))
+    y_delta = liquidity / 2 ** (96) * (cprice - lower)
     return x_delta / 10 ** (decimals_x), y_delta / 10 ** (decimals_y)
 
 
@@ -71,14 +65,14 @@ def price_to_tick(price: float, decimals_x: int, decimals_y: int) -> int:
     """
     Convert price to a tick.
     """
-    return math.floor(math.log(1/price * (10**decimals_y) / (10**decimals_x)) / math.log(1.0001))
+    return math.floor(math.log(1 / price * (10 ** decimals_y) / (10 ** decimals_x)) / math.log(1.0001))
 
 
 def tick_to_price(tick: int, decimals_x: int, decimals_y: int) -> float:
     """
     Convert a tick value to prices. Returns Price1.
     """
-    return 1.0001**(tick) * (10**decimals_x) / (10**decimals_y)
+    return 1.0001 ** (tick) * (10 ** decimals_x) / (10 ** decimals_y)
 
 
 def tick_spacing(fee_tier: int) -> int:
@@ -95,17 +89,17 @@ def expand_ticks(ticks_df: pd.DataFrame, decimals_x: int, decimals_y: int, fee_t
     https://github.com/Uniswap/v3-core/blob/main/contracts/UniswapV3Factory.sol#L41
     https://atiselsts.github.io/pdfs/uniswap-v3-liquidity-math.pdf
     """
-    ticks_df = ticks_df.sort_values("tickIdx").set_index('tickIdx')
-    ticks_df['Liquidity'] = ticks_df.liquidityNet.cumsum()  # * 10**(offset)
+    ticks_df = ticks_df.sort_values("tickIdx").set_index("tickIdx")
+    ticks_df["Liquidity"] = ticks_df.liquidityNet.cumsum()  # * 10**(offset)
     max_tick = ticks_df.index.max()
     min_tick = ticks_df.index.min()
 
     tick_range = list(range(min_tick, max_tick, tick_spacing(fee_tier)))
-    output_df = pd.DataFrame(tick_range, columns=['tickIdx'])
-    output_df['Price1'] = output_df.tickIdx.apply(lambda x: tick_to_price(x, decimals_x, decimals_y))
-    output_df['Price0'] = output_df.Price1 ** (-1)
-    output_df['Liquidity'] = output_df.tickIdx.map(ticks_df['Liquidity']).ffill()
-    output_df.set_index('tickIdx', inplace=True)
+    output_df = pd.DataFrame(tick_range, columns=["tickIdx"])
+    output_df["Price1"] = output_df.tickIdx.apply(lambda x: tick_to_price(x, decimals_x, decimals_y))
+    output_df["Price0"] = output_df.Price1 ** (-1)
+    output_df["Liquidity"] = output_df.tickIdx.map(ticks_df["Liquidity"]).ffill()
+    output_df.set_index("tickIdx", inplace=True)
 
     return output_df
 
@@ -117,18 +111,14 @@ def expand_decimals(number, exp):
 
 def get_sqrt_price_x96(price: float, decimals_x: int, decimals_y: int):
     "Get the Square Root X96 Price."
-    token0 = expand_decimals(1/price, decimals_y)
+    token0 = expand_decimals(1 / price, decimals_y)
     token1 = expand_decimals(1, decimals_x)
-    return math.sqrt(token0/token1) * 2**(96)
+    return math.sqrt(token0 / token1) * 2 ** (96)
 
 
-def calculate_liquidity(amount_x: float,
-                        amount_y: float,
-                        decimals_x: int,
-                        decimals_y: int,
-                        price_current: float,
-                        price_low: float,
-                        price_high: float) -> float:
+def calculate_liquidity(
+    amount_x: float, amount_y: float, decimals_x: int, decimals_y: int, price_current: float, price_low: float, price_high: float
+) -> float:
     """
     Calculate the liquidity for a LP.
     """
@@ -140,47 +130,50 @@ def calculate_liquidity(amount_x: float,
     amount_y = expand_decimals(amount_y, decimals_y)
 
     if cprice <= lower:
-        return amount_x * (upper * lower / 2**(96)) / (upper - lower)
+        return amount_x * (upper * lower / 2 ** (96)) / (upper - lower)
 
     if lower < cprice <= upper:
-        liquidity0 = amount_x * (upper * cprice / 2**(96)) / (upper - cprice)
-        liquidity1 = amount_y * 2**(96) / (cprice - lower)
+        liquidity0 = amount_x * (upper * cprice / 2 ** (96)) / (upper - cprice)
+        liquidity1 = amount_y * 2 ** (96) / (cprice - lower)
         return min(liquidity0, liquidity1)
 
     if upper < cprice:
-        return amount_y * 2**(96) / (upper - lower)
+        return amount_y * 2 ** (96) / (upper - lower)
 
     raise Exception("Error in sqrt price comparison.")
 
 
-def tv(simulator: MonteCarlo,
-       ohlc_df: pd.DataFrame,
-       ohlc_day_df: pd.DataFrame,
-       built_ticks_df: pd.DataFrame,
-       token_0_price: float,
-       token_0_lowerprice: float,
-       token_0_upperprice: float,
-       token_0: str,
-       token_1: str,
-       amount0: float,
-       amount1: float,
-       fee_tier: int,
-       t0_decimals: int,
-       t1_decimals: int,
-       ethPriceUSD: float,
-       t0derivedETH: float,
-       t1derivedETH: float,
-       return_type: str = 'sum') -> Union[float, pd.DataFrame, None]:
+def tv(
+    simulator: MonteCarlo,
+    ohlc_df: pd.DataFrame,
+    ohlc_day_df: pd.DataFrame,
+    built_ticks_df: pd.DataFrame,
+    token_0_price: float,
+    token_0_lowerprice: float,
+    token_0_upperprice: float,
+    token_0: str,
+    token_1: str,
+    amount0: float,
+    amount1: float,
+    fee_tier: int,
+    t0_decimals: int,
+    t1_decimals: int,
+    ethPriceUSD: float,
+    t0derivedETH: float,
+    t1derivedETH: float,
+    return_type: str = "sum",
+) -> Union[float, pd.DataFrame, None]:
     """
     Calcualte the Theoretical value of a Liquidity Position.
     """
-    ohlc = ohlc_df.copy().tail(3*24)
+    ohlc = ohlc_df.copy().tail(3 * 24)
 
-    average_day_fees = ohlc_day_df.copy().tail(5)['FeesUSD'][:-1].mean()
-    liquidity = calculate_liquidity(amount0, amount1, t0_decimals, t1_decimals,
-                                    token_0_price, token_0_lowerprice, token_0_upperprice)
+    average_day_fees = ohlc_day_df.copy().tail(5)["FeesUSD"][:-1].mean()
+    liquidity = calculate_liquidity(
+        amount0, amount1, t0_decimals, t1_decimals, token_0_price, token_0_lowerprice, token_0_upperprice
+    )
     ticks = expand_ticks(built_ticks_df, t0_decimals, t1_decimals, fee_tier)
-    tick_index = ticks.to_dict('index')
+    tick_index = ticks.to_dict("index")
 
     simulator.sim(ohlc)
     # ohlc_day_df.to_csv('/workspaces/daxis_amm/tests/data/ohlc_day_df.csv')
@@ -188,7 +181,9 @@ def tv(simulator: MonteCarlo,
     # built_ticks_df.to_csv('/workspaces/daxis_amm/tests/data/built_ticks_df.csv')
 
     fees = []
-    imperminant_loss = []
+    imperminant_loss_usd = []
+    imperminant_loss_x = []
+    imperminant_loss_y = []
 
     for col in simulator.simulations_dict:
 
@@ -197,8 +192,8 @@ def tv(simulator: MonteCarlo,
         for node in simulator.simulations_dict[col]:
             tick = price_to_tick(node, t0_decimals, t1_decimals)
             closest_tick_spacing = tick - tick % tick_spacing(fee_tier)
-            tick_liquidity = get_in([closest_tick_spacing, 'Liquidity'], tick_index, 0.0)
-            average_fee_revenue = (liquidity/(tick_liquidity+liquidity)) * average_day_fees / 24
+            tick_liquidity = get_in([closest_tick_spacing, "Liquidity"], tick_index, 0.0)
+            average_fee_revenue = (liquidity / (tick_liquidity + liquidity)) * average_day_fees / 24
             col_fees.append(average_fee_revenue)
         fees.append(sum(col_fees))
 
@@ -206,13 +201,22 @@ def tv(simulator: MonteCarlo,
         last_price = simulator.simulations_dict[col][-1]
         x_delta, y_delta = amounts_delta(liquidity, last_price, token_0_lowerprice, token_0_upperprice, t0_decimals, t1_decimals)
         sim_liq = x_delta * ethPriceUSD * t0derivedETH + y_delta * ethPriceUSD * t1derivedETH
-        imperminant_loss.append(sim_liq)
+        imperminant_loss_usd.append(sim_liq)
+        imperminant_loss_x.append(x_delta)
+        imperminant_loss_y.append(y_delta)
 
-    if return_type == 'breakdown':
-        return pd.DataFrame({'Fees': fees, 'Imperminant Loss':  imperminant_loss})
+    if return_type == "breakdown":
+        return pd.DataFrame(
+            {
+                "Fees USD": fees,
+                "Imperminant Loss USD": imperminant_loss_usd,
+                "Imperminant Loss TokenX": imperminant_loss_x,
+                "Imperminant Loss TokenY": imperminant_loss_y,
+            }
+        )
 
-    elif return_type == 'sum':
-        return sum([fee + imp for imp, fee in zip(imperminant_loss, fees)]) / len(simulator.simulations_dict)
+    elif return_type == "sum":
+        return sum([fee + imp for imp, fee in zip(imperminant_loss_usd, fees)]) / len(simulator.simulations_dict)
 
 
 def liquidity_graph(built_ticks_df: pd.DataFrame, token_0_price: float, tick: int, fee_tier: int) -> None:
@@ -221,15 +225,10 @@ def liquidity_graph(built_ticks_df: pd.DataFrame, token_0_price: float, tick: in
     """
     bar_plot = built_ticks_df.copy()
     bar_plot.reset_index(inplace=True)
-    bar_plot = bar_plot[bar_plot['Price0'].between(
-        token_0_price*0.75, token_0_price*1.25)]
-    bar_plot['color'] = np.where((bar_plot['tickIdx'] > tick) &
-                                 (bar_plot['tickIdx'] < tick + tick_spacing(fee_tier)),
-                                 'crimson', 'lightslategray')
-    data = [go.Bar(
-        x=bar_plot['Price0'].values,
-        y=bar_plot['Liquidity'].values,
-        marker_color=bar_plot['color'].values
-    )]
+    bar_plot = bar_plot[bar_plot["Price0"].between(token_0_price * 0.75, token_0_price * 1.25)]
+    bar_plot["color"] = np.where(
+        (bar_plot["tickIdx"] > tick) & (bar_plot["tickIdx"] < tick + tick_spacing(fee_tier)), "crimson", "lightslategray"
+    )
+    data = [go.Bar(x=bar_plot["Price0"].values, y=bar_plot["Liquidity"].values, marker_color=bar_plot["color"].values)]
     fig = go.Figure(data=data)
     pio.show(fig)

@@ -14,7 +14,9 @@ class MockMonteCarlo(MonteCarlo):
     "Mock MonteCarlo Simulator"
 
     def __init__(self, name) -> None:
-        with open(f'tests/data/{name}/simulation_df.json',) as file:
+        with open(
+            f"tests/data/{name}/simulation_df.json",
+        ) as file:
             self.simulations_dict = json.load(file)
 
     def sim(self, ohlc):
@@ -56,7 +58,7 @@ class TestUniswapV3(TestCase):
     def test_tick_to_price(self):
         "Test Tick to Price"
         test_1 = uniswap_v3.tick_to_price(207243, 6, 18)
-        self.assertAlmostEqual(test_1, 1/1000)
+        self.assertAlmostEqual(test_1, 1 / 1000)
 
     def test_tick_spacing(self):
         "Test tick spacing"
@@ -82,21 +84,37 @@ class TestUniswapV3(TestCase):
         token_0_upperprice = 4197.383297705435
         amount0 = 500.0
         amount1 = 0.11883039444280304
-        token0 = 'USDC'
-        token1 = 'WETH'
+        token0 = "USDC"
+        token1 = "WETH"
         fee_tier = 500
         t0_decimals = 6
         t1_decimals = 18
         ethPriceUSD = 3815.8029979140315
-        t0derivedETH = 1/3815.8029979140315
+        t0derivedETH = 1 / 3815.8029979140315
         t1derivedETH = 1
 
         tv = uniswap_v3.tv(
-            MockMonteCarlo('usdc_weth_500'),
-            ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price, token_0_lowerprice, token_0_upperprice, token0, token1,
-            amount0, amount1, fee_tier, t0_decimals, t1_decimals, ethPriceUSD, t0derivedETH, t1derivedETH, 'breakdown')
-        self.assertAlmostEqual(tv['Fees'].mean(), 1.993642243927015, places=2)
-        self.assertAlmostEqual(tv['Imperminant Loss'].mean(), 953.8347053957361, places=2)
+            MockMonteCarlo("usdc_weth_500"),
+            ohlc_hour_df,
+            ohlc_day_df,
+            built_ticks_df,
+            token_0_price,
+            token_0_lowerprice,
+            token_0_upperprice,
+            token0,
+            token1,
+            amount0,
+            amount1,
+            fee_tier,
+            t0_decimals,
+            t1_decimals,
+            ethPriceUSD,
+            t0derivedETH,
+            t1derivedETH,
+            "breakdown",
+        )
+        self.assertAlmostEqual(tv["Fees USD"].mean(), 1.993642243927015, places=2)
+        self.assertAlmostEqual(tv["Imperminant Loss USD"].mean(), 953.8347053957361, places=2)
 
     def test_tv_token_1_stable(self):
         "Test Theorical Value"
@@ -110,21 +128,37 @@ class TestUniswapV3(TestCase):
         token_0_upperprice = 0.0002884958613720589
         amount0 = 0.1446017094995115
         amount1 = 500.0
-        token0 = 'WETH'
-        token1 = 'USDT'
+        token0 = "WETH"
+        token1 = "USDT"
         fee_tier = 500
         t0_decimals = 18
         t1_decimals = 6
-        ethPriceUSD = 1/0.0002622689648836899
+        ethPriceUSD = 1 / 0.0002622689648836899
         t0derivedETH = 1
         t1derivedETH = 0.0002622689648836899
 
         tv = uniswap_v3.tv(
-            MockMonteCarlo('weth_usdt_500'),
-            ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price, token_0_lowerprice, token_0_upperprice, token0, token1,
-            amount0, amount1, fee_tier, t0_decimals, t1_decimals, ethPriceUSD, t0derivedETH, t1derivedETH, 'breakdown')
-        self.assertAlmostEqual(tv['Fees'].mean(), 11.911203806518552, places=2)
-        self.assertAlmostEqual(tv['Imperminant Loss'].mean(), 1052.8323046082285, places=2)
+            MockMonteCarlo("weth_usdt_500"),
+            ohlc_hour_df,
+            ohlc_day_df,
+            built_ticks_df,
+            token_0_price,
+            token_0_lowerprice,
+            token_0_upperprice,
+            token0,
+            token1,
+            amount0,
+            amount1,
+            fee_tier,
+            t0_decimals,
+            t1_decimals,
+            ethPriceUSD,
+            t0derivedETH,
+            t1derivedETH,
+            "breakdown",
+        )
+        self.assertAlmostEqual(tv["Fees USD"].mean(), 11.911203806518552, places=2)
+        self.assertAlmostEqual(tv["Imperminant Loss USD"].mean(), 1052.8323046082285, places=2)
 
     def test_tv_token_1_etherum(self):
         "Test Theorical Value"
@@ -132,12 +166,12 @@ class TestUniswapV3(TestCase):
         ohlc_hour_df = pd.read_csv("tests/data/wbtc_weth_3000/ohlc_hour_df.csv", index_col=0)
         ohlc_day_df = pd.read_csv("tests/data/wbtc_weth_3000/ohlc_day_df.csv", index_col=0)
         token_0_price = 0.07928533775940265
-        token_0_lowerprice = 1/13
-        token_0_upperprice = 1/12
+        token_0_lowerprice = 1 / 13
+        token_0_upperprice = 1 / 12
         amount0 = 0.01
         amount1 = 0.16
-        token0 = 'WBTC'
-        token1 = 'WETH'
+        token0 = "WBTC"
+        token1 = "WETH"
         fee_tier = 3000
         t0_decimals = 8
         t1_decimals = 18
@@ -146,8 +180,24 @@ class TestUniswapV3(TestCase):
         t1derivedETH = 1
 
         tv = uniswap_v3.tv(
-            MockMonteCarlo('wbtc_weth_3000'),
-            ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price, token_0_lowerprice, token_0_upperprice, token0, token1,
-            amount0, amount1, fee_tier, t0_decimals, t1_decimals, ethPriceUSD, t0derivedETH, t1derivedETH, 'breakdown')
-        self.assertAlmostEqual(tv['Fees'].mean(), 1.0751387330063196, places=2)
-        self.assertAlmostEqual(tv['Imperminant Loss'].mean(), 976.9403872979935, places=2)
+            MockMonteCarlo("wbtc_weth_3000"),
+            ohlc_hour_df,
+            ohlc_day_df,
+            built_ticks_df,
+            token_0_price,
+            token_0_lowerprice,
+            token_0_upperprice,
+            token0,
+            token1,
+            amount0,
+            amount1,
+            fee_tier,
+            t0_decimals,
+            t1_decimals,
+            ethPriceUSD,
+            t0derivedETH,
+            t1derivedETH,
+            "breakdown",
+        )
+        self.assertAlmostEqual(tv["Fees USD"].mean(), 1.0751387330063196, places=2)
+        self.assertAlmostEqual(tv["Imperminant Loss USD"].mean(), 976.9403872979935, places=2)

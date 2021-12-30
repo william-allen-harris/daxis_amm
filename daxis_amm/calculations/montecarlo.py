@@ -18,11 +18,11 @@ class MonteCarlo:
 
     def sim(self, input_ohlc):
         ohlc = input_ohlc.copy()
-        ohlc['returns'] = ohlc.Close.pct_change()
+        ohlc["returns"] = ohlc.Close.pct_change()
         ohlc.dropna(inplace=True)
 
-        returns = ohlc['returns']
-        self.prices = ohlc['Close'].values
+        returns = ohlc["returns"]
+        self.prices = ohlc["Close"].values
 
         last_price = self.prices[-1]
         simulations = {}
@@ -43,8 +43,8 @@ class MonteCarlo:
             simulations[x] = price_series
 
         self.simulations_dict = simulations
-        #import json
-        #with open('tests/data/simulation_df.json', 'w') as f:
+        # import json
+        # with open('tests/data/simulation_df.json', 'w') as f:
         #    json.dump(simulations, f)
         self.simulation_df = pd.DataFrame(simulations)
 
@@ -66,7 +66,7 @@ class MonteCarlo:
             variance = returns.var()
 
             daily_vol = returns.std()
-            daily_drift = avg_daily_ret - (variance/2)
+            daily_drift = avg_daily_ret - (variance / 2)
             drift = daily_drift - 0.5 * daily_vol ** 2
 
             # Append Start Value
@@ -94,15 +94,15 @@ class MonteCarlo:
 
         last_price = prices[-1]
         fig = plt.figure()
-        style.use('bmh')
+        style.use("bmh")
 
         title = "Monte Carlo Simulation: " + str(predicted_days) + " Days"
         plt.plot(simulation_df)
-        fig.suptitle(title, fontsize=18, fontweight='bold')
-        plt.xlabel('Day')
-        plt.ylabel('Price ($USD)')
-        plt.grid(True, color='grey')
-        plt.axhline(y=last_price, color='r', linestyle='-')
+        fig.suptitle(title, fontsize=18, fontweight="bold")
+        plt.xlabel("Day")
+        plt.ylabel("Price ($USD)")
+        plt.grid(True, color="grey")
+        plt.axhline(y=last_price, color="r", linestyle="-")
         plt.show()
 
     def histogram(self):
@@ -115,15 +115,14 @@ class MonteCarlo:
 
         num_bins = 20
         # the histogram of the data
-        n, bins, patches = plt.hist(x, num_bins, density=True,
-                                    stacked=True, facecolor='blue', alpha=0.5)
+        n, bins, patches = plt.hist(x, num_bins, density=True, stacked=True, facecolor="blue", alpha=0.5)
 
         # add a 'best fit' line
         y = norm.pdf(bins, mu, sigma)
-        plt.plot(bins, y, 'r--')
-        plt.xlabel('Price')
-        plt.ylabel('Probability')
-        plt.title(r'Histogram of Speculated Stock Prices', fontsize=18, fontweight='bold')
+        plt.plot(bins, y, "r--")
+        plt.xlabel("Price")
+        plt.ylabel("Probability")
+        plt.title(r"Histogram of Speculated Stock Prices", fontsize=18, fontweight="bold")
 
         # Tweak spacing to prevent clipping of ylabel
         plt.subplots_adjust(left=0.15)
@@ -144,15 +143,13 @@ class MonteCarlo:
 
         # Histogram
         fit = norm.pdf(price_array, np.mean(price_array), np.std(price_array))
-        plt.plot(price_array, fit, '-o')
+        plt.plot(price_array, fit, "-o")
         plt.hist(price_array, density=True, stacked=True)
-        plt.xlabel('Price')
-        plt.ylabel('Probability')
-        plt.title(r'Histogram of Speculated Stock Prices', fontsize=18, fontweight='bold')
-        plt.axvline(x=var, color='r', linestyle='--',
-                    label='Price at Confidence Interval: ' + str(round(var, 2)))
-        plt.axvline(x=last_price, color='k', linestyle='--',
-                    label='Current Stock Price: ' + str(round(last_price, 2)))
+        plt.xlabel("Price")
+        plt.ylabel("Probability")
+        plt.title(r"Histogram of Speculated Stock Prices", fontsize=18, fontweight="bold")
+        plt.axvline(x=var, color="r", linestyle="--", label="Price at Confidence Interval: " + str(round(var, 2)))
+        plt.axvline(x=last_price, color="k", linestyle="--", label="Current Stock Price: " + str(round(last_price, 2)))
         plt.legend(loc="upper right")
         plt.show()
 
@@ -160,7 +157,7 @@ class MonteCarlo:
         simulation_df = self.simulation_df
 
         # print('#------------------Simulation Stats------------------#')
-        #count = 1
+        # count = 1
         # for column in simulation_df:
         #    print("Simulation", count, "Mean Price: ", simulation_df[column].mean())
         #    print("Simulation", count, "Median Price: ", simulation_df[column].median())
@@ -168,23 +165,23 @@ class MonteCarlo:
 
         # print('\n')
 
-        print('#----------------------Last Price Stats--------------------#')
+        print("#----------------------Last Price Stats--------------------#")
         print("Mean Price: ", np.mean(simulation_df.iloc[-1, :]))
         print("Maximum Price: ", np.max(simulation_df.iloc[-1, :]))
         print("Minimum Price: ", np.min(simulation_df.iloc[-1, :]))
         print("Standard Deviation: ", np.std(simulation_df.iloc[-1, :]))
 
-        print('\n')
+        print("\n")
 
-        print('#----------------------Descriptive Stats-------------------#')
+        print("#----------------------Descriptive Stats-------------------#")
         price_array = simulation_df.iloc[-1, :]
         print(price_array.describe())
 
-        print('\n')
+        print("\n")
 
         # print('#--------------Annual Expected Returns for Trials-----------#')
-        #count = 1
-        #future_returns = simulation_df.pct_change()
+        # count = 1
+        # future_returns = simulation_df.pct_change()
         # for column in future_returns:
         #    print("Simulation", count, "Annual Expected Return", "{0:.2f}%".format((future_returns[column].mean() * 252) * 100))
         #    print("Simulation", count, "Total Return", "{0:.2f}%".format((future_returns[column].iloc[1] / future_returns[column].iloc[-1] - 1) * 100))
@@ -193,11 +190,11 @@ class MonteCarlo:
         # print('\n')
 
         # Create Column For Average Daily Price Across All Trials
-        #simulation_df['Average'] = simulation_df.mean(axis=1)
-        #ser = simulation_df['Average']
+        # simulation_df['Average'] = simulation_df.mean(axis=1)
+        # ser = simulation_df['Average']
 
         # print('#----------------------Percentiles--------------------------------#')
-        #percentile_list = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
+        # percentile_list = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
         # for per in percentile_list:
         #    print("{}th Percentile: ".format(per), np.percentile(price_array, per))
 
