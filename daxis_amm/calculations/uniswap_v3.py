@@ -56,8 +56,21 @@ def amounts_delta(
     upper = get_sqrt_price_x96(price_low, decimals_x, decimals_y)
     cprice = get_sqrt_price_x96(price_current, decimals_x, decimals_y)
 
-    x_delta = liquidity * (upper - cprice) / (cprice * upper / 2 ** (96))
-    y_delta = liquidity / 2 ** (96) * (cprice - lower)
+    if lower >= cprice:
+        x_delta = liquidity * (upper - lower) / (upper * lower / 2 ** (96))
+        y_delta = 0
+
+    elif lower < cprice <= upper:
+        x_delta = liquidity * (upper - cprice) / (cprice * upper / 2 ** (96))
+        y_delta = liquidity / 2 ** (96) * (cprice - lower)
+
+    elif upper < cprice:
+        x_delta = 0.0
+        y_delta = liquidity / 2 ** (96) * (upper - lower)
+
+    else:
+        raise Exception("Error in sqrt price comparison.")
+
     return x_delta / 10 ** (decimals_x), y_delta / 10 ** (decimals_y)
 
 
@@ -161,14 +174,27 @@ def tv(
     ethPriceUSD: float,
     t0derivedETH: float,
     t1derivedETH: float,
+    unix_timestamp: int,
     return_type: str = "sum",
 ) -> Union[float, pd.DataFrame, None]:
     """
     Calcualte the Theoretical value of a Liquidity Position.
     """
-    ohlc = ohlc_df.copy().tail(3 * 24)
+    unix_3_delay = unix_timestamp - (3 * 24 * 60 * 60)
+    unix_5_delay = unix_timestamp - (5 * 24 * 60 * 60)
+    
+    if ohlc_df.psUnix.max() < unix_3_delay:
+        raise Exception("No OHLC hour data available")
 
-    average_day_fees = ohlc_day_df.copy().tail(5)["FeesUSD"][:-1].mean()
+    ohlc = ohlc_df[(ohlc_df["psUnix"] < unix_timestamp) & (ohlc_df["psUnix"] > unix_3_delay)]
+
+    if ohlc_day_df.Date.max() < unix_5_delay:
+        raise Exception("No OHLC day data available")
+
+    average_day_fees = ohlc_day_df[(ohlc_day_df["Date"] < unix_timestamp) & (ohlc_day_df["Date"] > unix_5_delay)][
+        "FeesUSD"
+    ].mean()
+
     liquidity = calculate_liquidity(
         amount0, amount1, t0_decimals, t1_decimals, token_0_price, token_0_lowerprice, token_0_upperprice
     )
@@ -182,8 +208,6 @@ def tv(
 
     fees = []
     imperminant_loss_usd = []
-    imperminant_loss_x = []
-    imperminant_loss_y = []
 
     for col in simulator.simulations_dict:
 
@@ -200,23 +224,25 @@ def tv(
         # Calculate the Imperminant Loss.
         last_price = simulator.simulations_dict[col][-1]
         x_delta, y_delta = amounts_delta(liquidity, last_price, token_0_lowerprice, token_0_upperprice, t0_decimals, t1_decimals)
-        sim_liq = x_delta * ethPriceUSD * t0derivedETH + y_delta * ethPriceUSD * t1derivedETH
+
+        if Stables.has_member_key(token_0):
+            sim_liq = x_delta + y_delta * last_price
+        elif Stables.has_member_key(token_1):
+            sim_liq = x_delta * 1 / last_price + y_delta
+        else:
+            # sim_liq = x_delta * ethPriceUSD * t0derivedETH + y_delta * ethPriceUSD * t1derivedETH
+            raise Exception("Unable to price non-stable pairs.")
+
         imperminant_loss_usd.append(sim_liq)
-        imperminant_loss_x.append(x_delta)
-        imperminant_loss_y.append(y_delta)
+    #print(x_delta, y_delta, last_price, token_0_lowerprice, token_0_upperprice)
+
+    totals = [fee + imp for imp, fee in zip(imperminant_loss_usd, fees)]
 
     if return_type == "breakdown":
-        return pd.DataFrame(
-            {
-                "Fees USD": fees,
-                "Imperminant Loss USD": imperminant_loss_usd,
-                "Imperminant Loss TokenX": imperminant_loss_x,
-                "Imperminant Loss TokenY": imperminant_loss_y,
-            }
-        )
+        return pd.DataFrame({"Fees USD": fees, "Imperminant Loss USD": imperminant_loss_usd, "TV": totals}, dtype=np.float64)
 
     elif return_type == "sum":
-        return sum([fee + imp for imp, fee in zip(imperminant_loss_usd, fees)]) / len(simulator.simulations_dict)
+        return sum(totals) / len(simulator.simulations_dict)
 
 
 def liquidity_graph(built_ticks_df: pd.DataFrame, token_0_price: float, tick: int, fee_tier: int) -> None:

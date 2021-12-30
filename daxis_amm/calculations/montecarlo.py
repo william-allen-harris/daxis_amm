@@ -48,45 +48,6 @@ class MonteCarlo:
         #    json.dump(simulations, f)
         self.simulation_df = pd.DataFrame(simulations)
 
-    def brownian_motion(self):
-        returns = self.returns
-        prices = self.prices
-
-        last_price = prices[-1]
-
-        # Note we are assuming drift here
-        simulations = {}
-
-        # Create Each Simulation as a Column in df
-        for x in range(self.num_simulations):
-
-            # Inputs
-            count = 0
-            avg_daily_ret = returns.mean()
-            variance = returns.var()
-
-            daily_vol = returns.std()
-            daily_drift = avg_daily_ret - (variance / 2)
-            drift = daily_drift - 0.5 * daily_vol ** 2
-
-            # Append Start Value
-            prices = []
-
-            shock = drift + daily_vol * np.random.normal()
-            last_price * math.exp(shock)
-            prices.append(last_price)
-
-            for i in range(self.predicted_days):
-                shock = drift + daily_vol * np.random.normal()
-                price = prices[count] * math.exp(shock)
-                prices.append(price)
-
-                count += 1
-
-            simulations[x] = prices
-
-        self.simulation_df = pd.DataFrame(simulations)
-
     def line_graph(self):
         prices = self.prices
         predicted_days = self.predicted_days
@@ -153,49 +114,54 @@ class MonteCarlo:
         plt.legend(loc="upper right")
         plt.show()
 
-    def key_stats(self):
-        simulation_df = self.simulation_df
 
-        # print('#------------------Simulation Stats------------------#')
-        # count = 1
-        # for column in simulation_df:
-        #    print("Simulation", count, "Mean Price: ", simulation_df[column].mean())
-        #    print("Simulation", count, "Median Price: ", simulation_df[column].median())
-        #    count += 1
+class BrownianMotion(MonteCarlo):
+    def __init__(self, num_simulations=1000, predicted_days=24):
+        self.num_simulations = num_simulations
+        self.predicted_days = predicted_days
+        self.simulation_df = pd.DataFrame()
+        self.simulations_dict = dict()
 
-        # print('\n')
+    def sim(self, input_ohlc):
+        ohlc = input_ohlc.copy()
+        ohlc["returns"] = ohlc.Close.pct_change()
+        ohlc.dropna(inplace=True)
 
-        print("#----------------------Last Price Stats--------------------#")
-        print("Mean Price: ", np.mean(simulation_df.iloc[-1, :]))
-        print("Maximum Price: ", np.max(simulation_df.iloc[-1, :]))
-        print("Minimum Price: ", np.min(simulation_df.iloc[-1, :]))
-        print("Standard Deviation: ", np.std(simulation_df.iloc[-1, :]))
+        returns = ohlc["returns"]
+        self.prices = ohlc["Close"].values
 
-        print("\n")
+        last_price = self.prices[-1]
 
-        print("#----------------------Descriptive Stats-------------------#")
-        price_array = simulation_df.iloc[-1, :]
-        print(price_array.describe())
+        # Note we are assuming drift here
+        simulations = {}
 
-        print("\n")
+        # Create Each Simulation as a Column in df
+        for x in range(self.num_simulations):
 
-        # print('#--------------Annual Expected Returns for Trials-----------#')
-        # count = 1
-        # future_returns = simulation_df.pct_change()
-        # for column in future_returns:
-        #    print("Simulation", count, "Annual Expected Return", "{0:.2f}%".format((future_returns[column].mean() * 252) * 100))
-        #    print("Simulation", count, "Total Return", "{0:.2f}%".format((future_returns[column].iloc[1] / future_returns[column].iloc[-1] - 1) * 100))
-        #    count += 1
+            # Inputs
+            count = 0
+            avg_daily_ret = returns.mean()
+            variance = returns.var()
 
-        # print('\n')
+            daily_vol = returns.std()
+            daily_drift = avg_daily_ret - (variance / 2)
+            drift = daily_drift - 0.5 * daily_vol ** 2
 
-        # Create Column For Average Daily Price Across All Trials
-        # simulation_df['Average'] = simulation_df.mean(axis=1)
-        # ser = simulation_df['Average']
+            # Append Start Value
+            prices = []
 
-        # print('#----------------------Percentiles--------------------------------#')
-        # percentile_list = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
-        # for per in percentile_list:
-        #    print("{}th Percentile: ".format(per), np.percentile(price_array, per))
+            shock = drift + daily_vol * np.random.normal()
+            last_price * math.exp(shock)
+            prices.append(last_price)
 
-        # print('\n')
+            for i in range(self.predicted_days):
+                shock = drift + daily_vol * np.random.normal()
+                price = prices[count] * math.exp(shock)
+                prices.append(price)
+
+                count += 1
+
+            simulations[x] = prices
+        
+        self.simulations_dict = simulations
+        self.simulation_df = pd.DataFrame(simulations)

@@ -56,5 +56,4 @@ class Pool:
 
     @property
     def std(self):
-        # NOTE: This is wrong, as the ohlc close isnt always in terms of token0price
         return self.OHLC_df.copy().tail(3 * 24)["Close"].std(ddof=0)

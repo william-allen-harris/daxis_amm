@@ -3,6 +3,8 @@ Module defining the Uniswap V3 Liquidity Position Class.
 """
 from dataclasses import dataclass
 
+from datetime import datetime
+
 from daxis_amm.calculations import uniswap_v3
 from daxis_amm.calculations import montecarlo
 from daxis_amm.instruments.uniswap_v3 import Pool
@@ -30,15 +32,25 @@ class UniswapV3LP:
     @property
     def deposit_amounts(self):
         "Calculate the deposit amounts for each token."
+
+        if 0.0 in (self.pool.t0derivedETH, self.pool.t1derivedETH):
+            raise Exception("Unable to calcualte deposit amounts; One of the Pool derivedETH values are Zero.")
+
         usd_x = self.pool.ethPriceUSD * self.pool.t0derivedETH
         usd_y = self.pool.ethPriceUSD * self.pool.t1derivedETH
-        return uniswap_v3.get_deposit_amounts(
+        amount0, amount1 = uniswap_v3.get_deposit_amounts(
             1 / self.pool.token0Price, 1 / self.token_0_max_price, 1 / self.token_0_min_price, usd_x, usd_y, self.amount
         )
+
+        if amount0 < 0.0 or amount1 < 0.0:
+            raise Exception("Unable to calculate deposit amounts; either amount0 and amount1 is below 0.0")
+
+        return amount0, amount1
 
     def tv(self, simulator=montecarlo.MonteCarlo(), return_type="sum"):
         "Calculate the Theorical Value of the LP."
         amount0, amount1 = self.deposit_amounts
+        date_timestamp = int(datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp())
         return uniswap_v3.tv(
             simulator,
             self.pool.OHLC_df,
@@ -57,6 +69,7 @@ class UniswapV3LP:
             self.pool.ethPriceUSD,
             self.pool.t0derivedETH,
             self.pool.t1derivedETH,
+            date_timestamp,
             return_type,
         )
 
