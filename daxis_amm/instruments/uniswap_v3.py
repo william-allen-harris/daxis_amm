@@ -48,7 +48,12 @@ class Pool:
     Ticks_df: DataFrame
 
     def __str__(self):
-        return f'Uniswap V3 Pool {self.poolID}-> {self.t0symbol}/{self.t1symbol} {self.FeeTier/10000}%'
+        return f'Uniswap V3 Pool {self.poolID}: {self.t0symbol}{self.t1symbol} {self.FeeTier/10000}%'
 
     def __repr__(self):
-        return f'Uniswap V3 Pool {self.poolID}: {self.t0symbol}/{self.t1symbol} {self.FeeTier/10000}%'
+        return f'Uniswap V3 Pool {self.poolID}: {self.t0symbol}{self.t1symbol} {self.FeeTier/10000}%'
+
+    @property
+    def std(self):
+        # NOTE: This is wrong, as the ohlc close isnt always in terms of token0price
+        return self.OHLC_df.copy().tail(3*24)['Close'].std(ddof=0)

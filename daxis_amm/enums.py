@@ -13,6 +13,7 @@ class Stables(Enum):
     USDP = 'USDP'
     USDN = 'USDN'
     FEI = 'FEI'
+    FRAX = 'FRAX'
 
     @classmethod
     def has_member_key(cls, key):

@@ -21,7 +21,7 @@ poolIDs = []
 feeTier = 0
 
 
-def GetIDs(n, feeTier):
+def GetIDs(n, feeTier, return_type='list'):
     # GetIDs(n, FeeTier) returns a list of pool IDs
     # n: length of list
     # FeeTier: Sort by FeeTier (use 0 for no sorting)
@@ -43,13 +43,15 @@ def GetIDs(n, feeTier):
             continue
         break
     global poolIDs
-    print(len(idGet['pools']))
     for i in range(0, len(idGet['pools'])):
         poolIDs.append(idGet['pools'][i]['id'])
         token0Symbols.append(idGet['pools'][i]['token0']['symbol'])
         token1Symbols.append(idGet['pools'][i]['token1']['symbol'])
 
-    return poolIDs
+    if return_type == 'list':
+        return poolIDs
+    elif return_type == 'dict':
+        return {pool['token0']['symbol'] + pool['token1']['symbol']: pool['id'] for pool in idGet['pools']}
 
 
 def GetFrames(poolIDs, return_type='DataFrame'):
@@ -62,7 +64,7 @@ def GetFrames(poolIDs, return_type='DataFrame'):
     a = 0
 
     for id in poolIDs:
-        print('\n'+token0Symbols[a]+'/'+token1Symbols[a]+' poolID: ' + str(id))
+        #print('\n'+token0Symbols[a]+'/'+token1Symbols[a]+' poolID: ' + str(id))
         skip = 0
         ohlc_hour_list = []
         ohlc_day_list = []

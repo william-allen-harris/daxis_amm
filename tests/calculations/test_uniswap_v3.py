@@ -25,42 +25,28 @@ class TestUniswapV3(TestCase):
     "Test all functions in the calculations.uniswap_v3 module."
 
     def test_deposit_amount(self):
-        "Test deposit amount"
-        current_price = 2486.8
-        low_price = 1994.2
-        high_price = 2998.9
-        x_amount = 2907.729524805772
-        y_amount = 1
-        result = (2907.729524805772, 1.0000000000000016)
+        amounts = uniswap_v3.get_deposit_amounts(1.0000787101403958, 0.9866973124178464, 1.0093756958693298, 1, 1, 1000)
+        self.assertTupleEqual(amounts, (407.4399539418319, 592.560046058168))
 
-        test_1 = uniswap_v3.deposit_amount(current_price, low_price, high_price, x_amount, 'X')
-        self.assertTupleEqual(test_1, result)
+        amounts = uniswap_v3.get_deposit_amounts(4109.95688, 3636.1054998424484, 4781.166379972002, 3688.30, 1, 1000)
+        self.assertTupleEqual(amounts, (0.14203989758064778, 476.11424575329676))
 
-        test_2 = uniswap_v3.deposit_amount(current_price, low_price, high_price, y_amount, 'Y')
-        self.assertTupleEqual(test_2, result)
-
-        test_3 = uniswap_v3.deposit_amount(1/current_price, 1/high_price, 1/low_price, y_amount, 'X')
-        self.assertTupleEqual(test_3, (1.0, 2907.7295248057635))
-
-        test_4 = uniswap_v3.deposit_amount(1/current_price, 1/high_price, 1/low_price, x_amount, 'Y')
-        self.assertTupleEqual(test_4, (1.0000000000000018, 2907.7295248057685))
-
-    def test_lp_pool_value(self):
+    def test_amounts_delta(self):
         "Test Liquidity Position Pool Value."
         current_price = 2486.8
         low_price = 1994.2
         high_price = 2998.9
 
-        test_1 = uniswap_v3.lp_pool_value(557.9599554712883, current_price, low_price, high_price)
-        self.assertEqual(test_1, 5394.529524805781)
+        test_1 = uniswap_v3.amounts_delta(557959955471287.3, current_price, low_price, high_price, 6, 18)
+        self.assertTupleEqual(test_1, (2907.729524805766, 1.0))
 
     def test_calculate_liquidity(self):
         "Test calcualte liquidity."
-        test_1 = uniswap_v3.calculate_liquidity(2907.729524805772, 1, 2486.8, 1994.2, 2998.9)
-        self.assertEqual(test_1, 557.9599554712883)
+        test_1 = uniswap_v3.calculate_liquidity(2907.729524805772, 1, 6, 18, 2486.8, 1994.2, 2998.9)
+        self.assertEqual(test_1, 557959955471287.3)
 
-        test_1 = uniswap_v3.calculate_liquidity(513.34, 0.12, 4029.63, 3635.7, 4443.81)
-        self.assertEqual(test_1, 159.55760383772108)
+        test_1 = uniswap_v3.calculate_liquidity(513.34, 0.12, 6, 18, 4029.63, 3635.7, 4443.81)
+        self.assertEqual(test_1, 159557603837720.66)
 
     def test_price_to_tick(self):
         "Test Price to Tick - INPUT Price_Y"
@@ -78,14 +64,12 @@ class TestUniswapV3(TestCase):
         self.assertEqual(uniswap_v3.tick_spacing(3000), 60)
         self.assertEqual(uniswap_v3.tick_spacing(500), 10)
 
-    def test_build_ticks(self):
+    def test_expand_ticks(self):
         "Test build ticks"
         ticks_df = pd.read_csv("tests/data/ticks.csv.gz", index_col=0)
         built_ticks_results = pd.read_csv("tests/data/built_ticks_results.csv.gz", index_col=0)
-        token0 = 'USDC'
-        token1 = 'WETH'
 
-        built_ticks = uniswap_v3.build_ticks(ticks_df, token0, token1, 6, 18, 500)
+        built_ticks = uniswap_v3.expand_ticks(ticks_df, 6, 18, 500)
         assert_frame_equal(built_ticks, built_ticks_results, check_dtype=False)
 
     def test_tv_token_0_stable(self):
@@ -105,14 +89,19 @@ class TestUniswapV3(TestCase):
         t1_decimals = 18
         ethPriceUSD = 3815.8029979140315
         t0derivedETH = 1/3815.8029979140315
+        t1derivedETH = 1
 
-        tv = uniswap_v3.tv(MockMonteCarlo('usdc_weth_500'), ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price,
-                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals,
-                           ethPriceUSD, t0derivedETH)
-        self.assertAlmostEqual(tv, 954.9359388210878)
+        tv = uniswap_v3.tv(
+            MockMonteCarlo('usdc_weth_500'),
+            ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price, token_0_lowerprice, token_0_upperprice, token0, token1,
+            amount0, amount1, fee_tier, t0_decimals, t1_decimals, ethPriceUSD, t0derivedETH, t1derivedETH, 'breakdown')
+        self.assertAlmostEqual(tv['Fees'].mean(), 1.993642243927015, places=2)
+        self.assertAlmostEqual(tv['Imperminant Loss'].mean(), 953.8347053957361, places=2)
 
     def test_tv_token_1_stable(self):
         "Test Theorical Value"
+
+        # TODO: This might be wrong need to use ETH simulation price instead of current.
         built_ticks_df = pd.read_csv("tests/data/weth_usdt_500/built_ticks_df.csv", index_col=0)
         ohlc_hour_df = pd.read_csv("tests/data/weth_usdt_500/ohlc_hour_df.csv", index_col=0)
         ohlc_day_df = pd.read_csv("tests/data/weth_usdt_500/ohlc_day_df.csv", index_col=0)
@@ -128,11 +117,14 @@ class TestUniswapV3(TestCase):
         t1_decimals = 6
         ethPriceUSD = 1/0.0002622689648836899
         t0derivedETH = 1
+        t1derivedETH = 0.0002622689648836899
 
-        tv = uniswap_v3.tv(MockMonteCarlo('weth_usdt_500'), ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price,
-                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals,
-                           ethPriceUSD, t0derivedETH)
-        self.assertAlmostEqual(tv, 1065.011664654374)
+        tv = uniswap_v3.tv(
+            MockMonteCarlo('weth_usdt_500'),
+            ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price, token_0_lowerprice, token_0_upperprice, token0, token1,
+            amount0, amount1, fee_tier, t0_decimals, t1_decimals, ethPriceUSD, t0derivedETH, t1derivedETH, 'breakdown')
+        self.assertAlmostEqual(tv['Fees'].mean(), 11.911203806518552, places=2)
+        self.assertAlmostEqual(tv['Imperminant Loss'].mean(), 1052.8323046082285, places=2)
 
     def test_tv_token_1_etherum(self):
         "Test Theorical Value"
@@ -140,10 +132,10 @@ class TestUniswapV3(TestCase):
         ohlc_hour_df = pd.read_csv("tests/data/wbtc_weth_3000/ohlc_hour_df.csv", index_col=0)
         ohlc_day_df = pd.read_csv("tests/data/wbtc_weth_3000/ohlc_day_df.csv", index_col=0)
         token_0_price = 0.07928533775940265
-        token_0_lowerprice = 0.07532107087143251 
-        token_0_upperprice = 0.08324960464737279
-        amount0 = 0.005229806233748243
-        amount1 = 0.06278198525682302
+        token_0_lowerprice = 1/13
+        token_0_upperprice = 1/12
+        amount0 = 0.01
+        amount1 = 0.16
         token0 = 'WBTC'
         token1 = 'WETH'
         fee_tier = 3000
@@ -151,8 +143,11 @@ class TestUniswapV3(TestCase):
         t1_decimals = 18
         ethPriceUSD = 3790.070521531456
         t0derivedETH = 12.612672509948505
+        t1derivedETH = 1
 
-        tv = uniswap_v3.tv(MockMonteCarlo('wbtc_weth_3000'), ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price,
-                           token_0_lowerprice, token_0_upperprice, token0, token1, amount0, amount1, fee_tier, t0_decimals, t1_decimals,
-                           ethPriceUSD, t0derivedETH)
-        self.assertAlmostEqual(tv, 487.15271873601296)
+        tv = uniswap_v3.tv(
+            MockMonteCarlo('wbtc_weth_3000'),
+            ohlc_hour_df, ohlc_day_df, built_ticks_df, token_0_price, token_0_lowerprice, token_0_upperprice, token0, token1,
+            amount0, amount1, fee_tier, t0_decimals, t1_decimals, ethPriceUSD, t0derivedETH, t1derivedETH, 'breakdown')
+        self.assertAlmostEqual(tv['Fees'].mean(), 1.0751387330063196, places=2)
+        self.assertAlmostEqual(tv['Imperminant Loss'].mean(), 976.9403872979935, places=2)

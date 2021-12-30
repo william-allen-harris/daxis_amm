@@ -10,7 +10,7 @@ import math
 
 
 class MonteCarlo:
-    def __init__(self, num_simulations=10, predicted_days=24):
+    def __init__(self, num_simulations=100000, predicted_days=24):
         self.num_simulations = num_simulations
         self.predicted_days = predicted_days
         self.simulation_df = pd.DataFrame()
@@ -43,9 +43,9 @@ class MonteCarlo:
             simulations[x] = price_series
 
         self.simulations_dict = simulations
-        import json
-        with open('tests/data/simulation_df.json', 'w') as f:
-            json.dump(simulations, f)
+        #import json
+        #with open('tests/data/simulation_df.json', 'w') as f:
+        #    json.dump(simulations, f)
         self.simulation_df = pd.DataFrame(simulations)
 
     def brownian_motion(self):
