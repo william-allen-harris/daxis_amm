@@ -1,9 +1,12 @@
-from numpy import sqrt
 from daxis_amm.calculations.montecarlo import BrownianMotion
 from daxis_amm.enums import Stables
-from daxis_amm.graphs.GetFrames import GetFrames, GetIDs
+from daxis_amm.graphs.GetFrames import GetIDs
 from daxis_amm.positions.uniswap_v3 import UniswapV3LP
 
+import logging
+logging.basicConfig()
+logger = logging.getLogger()
+logger.setLevel(logging.ERROR)
 
 def get_pair_id(token0, token1):
     test_ids = GetIDs(100, 0, "dict")
@@ -17,17 +20,14 @@ def get_first_ids_that_have_stable_pairs(first):
     return [value for key, value in test_ids.items() if any([stable in key for stable in stables])]
 
 
-ids = get_first_ids_that_have_stable_pairs(3)
-pools = GetFrames(GetIDs(5, 0), return_type="Object")
+ids = get_first_ids_that_have_stable_pairs(10)
 
-for pool in pools:
+for id in ids:
+    lp = UniswapV3LP(id, 1000)
+    print(f"Trying to calculate {lp} ....")
+
     try:
-        print(f"Trying to calculate {pool} ....")
-        max_price = pool.token0Price + pool.std * sqrt(24)
-        min_price = pool.token0Price - pool.std * sqrt(24)
-
-        lp = UniswapV3LP(pool, 1000, min_price, max_price)
-        theoretical_value = lp.tv(simulator=BrownianMotion(), return_type="breakdown")
-        print(theoretical_value.mean())
+        theoretical_value = lp.tv(simulator=BrownianMotion())
+        print(theoretical_value)
     except Exception as err:
         print(err)

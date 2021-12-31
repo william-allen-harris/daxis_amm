@@ -2,11 +2,14 @@
 Module defining the Uniswap V3 Liquidity Position Class.
 """
 from dataclasses import dataclass
+from math import sqrt
+from typing import Optional
 
 from datetime import datetime
 
 from daxis_amm.calculations import uniswap_v3
 from daxis_amm.calculations import montecarlo
+from daxis_amm.graphs.uniswap_v3 import get_pool
 from daxis_amm.instruments.uniswap_v3 import Pool
 
 
@@ -18,16 +21,33 @@ class UniswapV3LP:
     Amount in USD.
     """
 
-    pool: Pool
+    pool_id: str
     amount: float
-    token_0_min_price: float
-    token_0_max_price: float
+    min_percentage: Optional[float] = None
+    max_percentage: Optional[float] = None
+
+    def __post_init__(self):
+        self.pool: Pool = get_pool(self.pool_id)
+
+    @property
+    def token_0_min_price(self):
+        if self.min_percentage is None:
+            return self.pool.token0Price - self.pool.std * sqrt(24)
+
+        return self.pool.token0Price * self.min_percentage
+
+    @property
+    def token_0_max_price(self):
+        if self.max_percentage is None:
+            return self.pool.token0Price + self.pool.std * sqrt(24)
+
+        return self.pool.token0Price * self.max_percentage
 
     def __str__(self):
-        return f"{self.pool}-> Uniswap LP {self.token_0_min_price} to {self.token_0_max_price}"
+        return f"{self.pool}-> Uniswap LP from {self.token_0_min_price} to {self.token_0_max_price}"
 
     def __repr__(self):
-        return f"{self.pool}-> Uniswap LP {self.token_0_min_price} to {self.token_0_max_price}"
+        return f"{self.pool}-> Uniswap LP from {self.token_0_min_price} to {self.token_0_max_price}"
 
     @property
     def deposit_amounts(self):
