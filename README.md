@@ -10,6 +10,12 @@ Please see https://code.visualstudio.com/docs/remote/containers for more informa
 
 TODO:
 
+Backtesting:
+
+1. Data -> get data from a specific date
+2. Add a Backtest function to instrument class
+
+
 Overall
 1. Add a Portfolio Class which allows for multiple Positions to be TV at the same time.
 

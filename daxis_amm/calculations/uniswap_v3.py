@@ -171,9 +171,7 @@ def tv(
     fee_tier: int,
     t0_decimals: int,
     t1_decimals: int,
-    ethPriceUSD: float,
-    t0derivedETH: float,
-    t1derivedETH: float,
+    simulation_usd_x_prices: pd.DataFrame,
     unix_timestamp: int,
     return_type: str = "sum",
 ) -> Union[float, pd.DataFrame, None]:
@@ -230,8 +228,7 @@ def tv(
         elif Stables.has_member_key(token_1):
             sim_liq = x_delta * 1 / last_price + y_delta
         else:
-            # sim_liq = x_delta * ethPriceUSD * t0derivedETH + y_delta * ethPriceUSD * t1derivedETH
-            raise Exception("Unable to price non-stable pairs.")
+            sim_liq = (x_delta + y_delta * last_price) * simulation_usd_x_prices[col][-1]
 
         depsoit_amounts_usd.append(sim_liq)
     # print(x_delta, y_delta, last_price, token_0_lowerprice, token_0_upperprice)
@@ -243,6 +240,78 @@ def tv(
 
     elif return_type == "sum":
         return sum(tvs) / len(simulator.simulations_dict)
+
+
+def pnl(
+    start_unixtime: int,
+    end_unxtime: int,
+    ohlc_hour_df: pd.DataFrame,
+    ohlc_day_df: pd.DataFrame,
+    built_ticks_df: pd.DataFrame,
+    token0_day_usd_price_df: pd.DataFrame,
+    token1_day_usd_price_df: pd.DataFrame,
+    min_perc_price: float,
+    max_perc_price: float,
+    token_0: str,
+    token_1: str,
+    amount: float,
+    fee_tier: int,
+    t0_decimals: int,
+    t1_decimals: int,
+) -> float:
+    """
+    1. Sum all of the fees between two dates.
+    2. Calculate the final imperminant loss.
+    """
+    if ohlc_day_df.Date.max() < start_unixtime:
+        raise Exception("No OHLC day data available")
+
+    if ohlc_hour_df.psUnix.max() < start_unixtime:
+        raise Exception("No OHLC hour data available")
+
+    day_filter = (ohlc_day_df["Date"] <= end_unxtime) & (ohlc_day_df["Date"] >= start_unixtime)
+    ohlc_day_df = ohlc_day_df[day_filter].sort_values("Date").set_index("Date")
+
+    hour_filter = (ohlc_hour_df["psUnix"] <= end_unxtime) & (ohlc_hour_df["psUnix"] >= start_unixtime)
+    ohlc_hour_df = ohlc_hour_df[hour_filter].sort_values("psUnix").set_index("psUnix")
+
+    first_price = ohlc_hour_df.loc[start_unixtime]["Close"]
+    token_0_lowerprice = first_price * (1 - min_perc_price)
+    token_0_upperprice = first_price * (1 + max_perc_price)
+    
+    last_price = ohlc_hour_df.loc[end_unxtime]["Close"]
+    usd_x = token0_day_usd_price_df.loc[end_unxtime]["Close"]
+    usd_y = token1_day_usd_price_df.loc[end_unxtime]["Close"]
+
+    amount0, amount1 = get_deposit_amounts(1 / first_price, 1 / token_0_upperprice, 1 / token_0_lowerprice, usd_x, usd_y, amount)
+
+    low = ohlc_hour_df["Low"].min()
+    high = ohlc_hour_df["High"].max()
+
+    tick_high = price_to_tick(high, t0_decimals, t1_decimals)
+    tick_low = price_to_tick(low, t0_decimals, t1_decimals)
+    ticks = expand_ticks(built_ticks_df, t0_decimals, t1_decimals, fee_tier)
+    ticks = ticks[(ticks.index <= tick_low) & (ticks.index >= tick_high)]
+
+    average_liquidity = ticks.Liquidity.mean()
+    liquidity = calculate_liquidity(
+        amount0, amount1, t0_decimals, t1_decimals, first_price, token_0_lowerprice, token_0_upperprice
+    )
+
+    # Fees
+    accrued_fees = ohlc_day_df["FeesUSD"].sum() * (liquidity / (liquidity + average_liquidity))
+
+    # Imperminant Loss
+    x_delta, y_delta = amounts_delta(liquidity, last_price, token_0_lowerprice, token_0_upperprice, t0_decimals, t1_decimals)
+
+    if Stables.has_member_key(token_0):
+        sim_liq = x_delta + y_delta * last_price
+    elif Stables.has_member_key(token_1):
+        sim_liq = x_delta * 1 / last_price + y_delta
+    else:
+        sim_liq = (x_delta + y_delta * last_price) * usd_x
+
+    return accrued_fees, sim_liq
 
 
 def liquidity_graph(built_ticks_df: pd.DataFrame, token_0_price: float, tick: int, fee_tier: int) -> None:

@@ -2,7 +2,7 @@ from daxis_amm.calculations.montecarlo import BrownianMotion
 from daxis_amm.enums import Stables
 from daxis_amm.graphs.GetFrames import GetIDs
 from daxis_amm.positions.uniswap_v3 import UniswapV3LP
-
+import datetime
 import logging
 logging.basicConfig()
 logger = logging.getLogger()
@@ -20,14 +20,11 @@ def get_first_ids_that_have_stable_pairs(first):
     return [value for key, value in test_ids.items() if any([stable in key for stable in stables])]
 
 
-ids = get_first_ids_that_have_stable_pairs(10)
+ids = get_first_ids_that_have_stable_pairs(1)
 
 for id in ids:
-    lp = UniswapV3LP(id, 1000)
-    print(f"Trying to calculate {lp} ....")
+    start = datetime.datetime(2021,12, 28)
+    end = datetime.datetime(2021,12, 29)
 
-    try:
-        theoretical_value = lp.tv(simulator=BrownianMotion())
-        print(theoretical_value)
-    except Exception as err:
-        print(err)
+    lp = UniswapV3LP(id, 1000, start, end, 0.1, 0.1)
+    print(lp.pnl())

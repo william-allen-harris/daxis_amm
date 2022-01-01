@@ -131,6 +131,58 @@ def get_pool_info(pool_id):
     ]
 
 
+def get_token_day_data_info(token_id):
+    logging.info(f"Retreiving Token Day Data {token_id} for Subgraph")
+
+    querys = [
+        ('{token(id: "' + token_id + '"){tokenDayData(first: 1000, skip: ' + str(skip) + "){date close high low open}}}")
+        for skip in range(0, 6000, 1000)
+    ]
+    results = query_multiple_gql(querys)
+
+    ohlc_hour_list = []
+    for poolInfo in results.values():
+        for i in range(len(poolInfo["token"]["tokenDayData"])):
+            close = float(poolInfo["token"]["tokenDayData"][i]["close"])
+            high = float(poolInfo["token"]["tokenDayData"][i]["high"])
+            low = float(poolInfo["token"]["tokenDayData"][i]["low"])
+            open = float(poolInfo["token"]["tokenDayData"][i]["open"])
+            date = poolInfo["token"]["tokenDayData"][i]["date"]
+            tempList = [close, high, low, open, date]
+            ohlc_hour_list.append(tempList)
+    return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "Date"])
+
+
+def get_token_hour_data_info(token_id: str, start_unix: int):
+    logging.info(f"Retreiving Token Hour Data {token_id} for Subgraph")
+
+    querys = [
+        (
+            "{tokenHourDatas(first: 1000 skip:"
+            + str(skip)
+            + ' orderBy:periodStartUnix orderDirection:desc where: {token:"'
+            + str(token_id)
+            + '" periodStartUnix_lte: '
+            + str(start_unix)
+            + "}){periodStartUnix close open high low}}"
+        )
+        for skip in range(0, 6000, 1000)
+    ]
+    results = query_multiple_gql(querys)
+
+    ohlc_hour_list = []
+    for poolInfo in results.values():
+        for i in range(len(poolInfo["tokenHourDatas"])):
+            close = float(poolInfo["tokenHourDatas"][i]["close"])
+            high = float(poolInfo["tokenHourDatas"][i]["high"])
+            low = float(poolInfo["tokenHourDatas"][i]["low"])
+            open = float(poolInfo["tokenHourDatas"][i]["open"])
+            periodStartUnix = poolInfo["tokenHourDatas"][i]["periodStartUnix"]
+            tempList = [close, high, low, open, periodStartUnix]
+            ohlc_hour_list.append(tempList)
+    return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "psUnix"])
+
+
 def get_pool_hour_data_info(pool_id):
     logging.info(f"Retreiving Pool Hour Data {pool_id} for Subgraph")
 
@@ -153,17 +205,24 @@ def get_pool_hour_data_info(pool_id):
             high = float(poolInfo["pool"]["poolHourData"][i]["high"])
             low = float(poolInfo["pool"]["poolHourData"][i]["low"])
             open = float(poolInfo["pool"]["poolHourData"][i]["open"])
+            fees_usd = float(poolInfo["pool"]["poolHourData"][i]["feesUSD"])
             periodStartUnix = poolInfo["pool"]["poolHourData"][i]["periodStartUnix"]
-            tempList = [close, high, low, open, periodStartUnix]
+            tempList = [close, high, low, open, fees_usd, periodStartUnix]
             ohlc_hour_list.append(tempList)
-    return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "psUnix"])
+    return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "feesUSD", "psUnix"])
 
 
 def get_pool_day_data_info(pool_id):
     logging.info(f"Retreiving Pool Hour Day {pool_id} for Subgraph")
 
     querys = [
-        ('{pool(id: "' + pool_id + '"){poolDayData(first: 1000, skip: ' + str(skip) + "){date feesUSD}}}")
+        (
+            '{pool(id: "'
+            + pool_id
+            + '"){poolDayData(first: 1000, skip: '
+            + str(skip)
+            + "){date feesUSD volumeToken0 volumeToken1 volumeUSD}}}"
+        )
         for skip in range(0, 6000, 1000)
     ]
     results = query_multiple_gql(querys)
@@ -172,10 +231,13 @@ def get_pool_day_data_info(pool_id):
     for poolInfo in results.values():
         for i in range(len(poolInfo["pool"]["poolDayData"])):
             fees_usd = float(poolInfo["pool"]["poolDayData"][i]["feesUSD"])
+            volume_token0 = float(poolInfo["pool"]["poolDayData"][i]["volumeToken0"])
+            volume_token1 = float(poolInfo["pool"]["poolDayData"][i]["volumeToken1"])
+            volume_usd = float(poolInfo["pool"]["poolDayData"][i]["volumeUSD"])
             date = float(poolInfo["pool"]["poolDayData"][i]["date"])
-            tempList = [date, fees_usd]
+            tempList = [date, fees_usd, volume_token0, volume_token1, volume_usd]
             ohlc_day_list.append(tempList)
-    return pd.DataFrame(ohlc_day_list, columns=["Date", "FeesUSD"])
+    return pd.DataFrame(ohlc_day_list, columns=["Date", "FeesUSD", "volumeToken0", "volumeToken1", "volumeUSD"])
 
 
 def get_pool_ticks_info(pool_id):
