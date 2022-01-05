@@ -5,12 +5,7 @@ import pandas as pd
 from toolz import get_in
 
 from daxis_amm.calculations.base import BaseCalculator
-from daxis_amm.graphs.uniswap_v3.uniswap_v3 import (
-    get_pool_hour_data_info,
-    get_pool_day_data_info,
-    get_pool_ticks_info,
-    get_token_hour_data_info,
-)
+from daxis_amm.graphs.uniswap_v3.uniswap_v3 import UniswapV3Graph
 from daxis_amm.calculations.uniswap.v3 import utils
 
 
@@ -38,12 +33,13 @@ class UniswapV3TVCalculator(BaseCalculator):
 
     def _get_data(self):
         start_date = self.value_date - (5 * 24 * 60 * 60)
-        self.data = {
-            "ohlc_hour_df": get_pool_hour_data_info(self.position.pool.poolID, start_date, self.value_date),
-            "ohlc_day_df": get_pool_day_data_info(self.position.pool.poolID, start_date, self.value_date),
-            "ticks_df": get_pool_ticks_info(self.position.pool.poolID),
-            "token_0_hour_df": get_token_hour_data_info(self.position.pool.t0id, start_date, self.value_date),
+        funcs_dict = {
+            "ohlc_hour_df": (UniswapV3Graph.get_pool_hour_data_info, (self.position.pool.poolID, start_date, self.value_date)),
+            "ohlc_day_df": (UniswapV3Graph.get_pool_day_data_info, (self.position.pool.poolID, start_date, self.value_date)),
+            "ticks_df": (UniswapV3Graph.get_pool_ticks_info, (self.position.pool.poolID,)),
+            "token_0_hour_df": (UniswapV3Graph.get_token_hour_data_info, (self.position.pool.t0id, start_date, self.value_date)),
         }
+        self.data = UniswapV3Graph.multiprocess(funcs_dict)
 
     def _stage_data(self):
         average_day_fees = self.data["ohlc_day_df"]["FeesUSD"].mean()

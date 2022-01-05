@@ -3,12 +3,7 @@ import pandas as pd
 
 from daxis_amm.enums import Stables
 from daxis_amm.calculations.base import BaseCalculator
-from daxis_amm.graphs.uniswap_v3.uniswap_v3 import (
-    get_pool_hour_data_info,
-    get_pool_day_data_info,
-    get_pool_ticks_info,
-    get_token_hour_data_info,
-)
+from daxis_amm.graphs.uniswap_v3.uniswap_v3 import UniswapV3Graph
 from daxis_amm.calculations.uniswap.v3 import utils
 
 
@@ -17,22 +12,32 @@ class UniswapV3PnLCalculator(BaseCalculator):
     end_date: int
 
     def _get_data(self):
-        self.data = {
-            "token0_day_usd_price_df": get_token_hour_data_info(
-                self.position.pool.t0id, self.start_date, self.end_date
-            ).set_index("psUnix"),
-            "token1_day_usd_price_df": get_token_hour_data_info(
-                self.position.pool.t1id, self.start_date, self.end_date
-            ).set_index("psUnix"),
-            "ohlc_hour_df": get_pool_hour_data_info(self.position.pool.poolID, self.start_date, self.end_date).set_index(
-                "psUnix"
+        funcs_dict = {
+            "token0_day_usd_price_df": (
+                UniswapV3Graph.get_token_hour_data_info,
+                (self.position.pool.t0id, self.start_date, self.end_date),
             ),
-            "ohlc_day_df": get_pool_day_data_info(self.position.pool.poolID, self.start_date, self.end_date).set_index("Date"),
-            "ticks_df": get_pool_ticks_info(self.position.pool.poolID),
-            "token_0_hour_df": get_token_hour_data_info(self.position.pool.t0id, self.start_date, self.end_date),
+            "token1_day_usd_price_df": (
+                UniswapV3Graph.get_token_hour_data_info,
+                (self.position.pool.t1id, self.start_date, self.end_date),
+            ),
+            "ohlc_hour_df": (UniswapV3Graph.get_pool_hour_data_info, (self.position.pool.poolID, self.start_date, self.end_date)),
+            "ohlc_day_df": (UniswapV3Graph.get_pool_day_data_info, (self.position.pool.poolID, self.start_date, self.end_date)),
+            "ticks_df": (UniswapV3Graph.get_pool_ticks_info, (self.position.pool.poolID,)),
+            "token_0_hour_df": (
+                UniswapV3Graph.get_token_hour_data_info,
+                (self.position.pool.t0id, self.start_date, self.end_date),
+            ),
         }
 
+        self.data = UniswapV3Graph.multiprocess(funcs_dict)
+
     def _stage_data(self):
+        self.data["token0_day_usd_price_df"] = self.data["token0_day_usd_price_df"].set_index("psUnix")
+        self.data["token1_day_usd_price_df"] = self.data["token1_day_usd_price_df"].set_index("psUnix")
+        self.data["ohlc_hour_df"] = self.data["ohlc_hour_df"].set_index("psUnix")
+        self.data["ohlc_day_df"] = self.data["ohlc_day_df"].set_index("Date")
+        
         if self.data["ohlc_day_df"].index.max() < self.start_date:
             raise Exception("No OHLC day data available")
 

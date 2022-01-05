@@ -11,14 +11,8 @@ from daxis_amm.calculations.uniswap.v3 import utils
 from daxis_amm.calculations import montecarlo
 from daxis_amm.calculations.uniswap.v3.tv import UniswapV3TVCalculator
 from daxis_amm.calculations.uniswap.v3.pnl import UniswapV3PnLCalculator
-from daxis_amm.graphs.uniswap_v3.uniswap_v3 import get_pool, get_token_hour_data_info
+from daxis_amm.graphs.uniswap_v3.uniswap_v3 import get_pool
 from daxis_amm.instruments.uniswap_v3 import Pool
-from daxis_amm.graphs.uniswap_v3.uniswap_v3 import (
-    get_pool_hour_data_info,
-    get_pool_day_data_info,
-    get_pool_ticks_info,
-    get_token_hour_data_info,
-)
 
 
 @dataclass

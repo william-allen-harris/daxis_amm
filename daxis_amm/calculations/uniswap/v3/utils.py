@@ -1,18 +1,13 @@
 """
-Module defining all Uniswap V3 functions used to complete calculations.
+Module defining Uniswap V3 functions used to complete calculations.
 """
 import math
-from typing import Tuple, Union
-from pandas.core.dtypes.missing import isna
+from typing import Tuple
 
-from toolz import get_in
 import pandas as pd
 import numpy as np
 import plotly.io as pio
 import plotly.graph_objs as go
-
-from daxis_amm.calculations.montecarlo import MonteCarlo
-from daxis_amm.enums import Stables
 
 
 def get_deposit_amounts(
