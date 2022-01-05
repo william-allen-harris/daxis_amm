@@ -135,7 +135,13 @@ def get_token_day_data_info(token_id):
     logging.info(f"Retreiving Token Day Data {token_id} for Subgraph")
 
     querys = [
-        ('{token(id: "' + token_id + '"){tokenDayData(first: 1000, skip: ' + str(skip) + "){date close high low open}}}")
+        (
+            '{token(id: "'
+            + token_id
+            + '"){tokenDayData(first: 1000, skip: '
+            + str(skip)
+            + " orderBy: date orderDirection: desc){date close high low open}}}"
+        )
         for skip in range(0, 6000, 1000)
     ]
     results = query_multiple_gql(querys)
@@ -153,7 +159,7 @@ def get_token_day_data_info(token_id):
     return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "Date"])
 
 
-def get_token_hour_data_info(token_id: str, start_unix: int):
+def get_token_hour_data_info(token_id: str, start_date, end_date):
     logging.info(f"Retreiving Token Hour Data {token_id} for Subgraph")
 
     querys = [
@@ -162,8 +168,10 @@ def get_token_hour_data_info(token_id: str, start_unix: int):
             + str(skip)
             + ' orderBy:periodStartUnix orderDirection:desc where: {token:"'
             + str(token_id)
-            + '" periodStartUnix_lte: '
-            + str(start_unix)
+            + '" periodStartUnix_gte: '
+            + str(start_date)
+            + " periodStartUnix_lte: "
+            + str(end_date)
             + "}){periodStartUnix close open high low}}"
         )
         for skip in range(0, 6000, 1000)
@@ -180,10 +188,10 @@ def get_token_hour_data_info(token_id: str, start_unix: int):
             periodStartUnix = poolInfo["tokenHourDatas"][i]["periodStartUnix"]
             tempList = [close, high, low, open, periodStartUnix]
             ohlc_hour_list.append(tempList)
-    return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "psUnix"])
+    return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "psUnix"]).sort_values("psUnix")
 
 
-def get_pool_hour_data_info(pool_id):
+def get_pool_hour_data_info(pool_id, start_date, end_date):
     logging.info(f"Retreiving Pool Hour Data {pool_id} for Subgraph")
 
     querys = [
@@ -192,10 +200,15 @@ def get_pool_hour_data_info(pool_id):
             + pool_id
             + '"){poolHourData(first: 1000, skip: '
             + str(skip)
-            + "){periodStartUnix close high low open feesUSD}}}"
+            + " orderBy: periodStartUnix orderDirection: desc where: {periodStartUnix_gte: "
+            + str(start_date)
+            + " periodStartUnix_lte: "
+            + str(end_date)
+            + "}){periodStartUnix close high low open feesUSD}}}"
         )
         for skip in range(0, 6000, 1000)
     ]
+
     results = query_multiple_gql(querys)
 
     ohlc_hour_list = []
@@ -209,10 +222,10 @@ def get_pool_hour_data_info(pool_id):
             periodStartUnix = poolInfo["pool"]["poolHourData"][i]["periodStartUnix"]
             tempList = [close, high, low, open, fees_usd, periodStartUnix]
             ohlc_hour_list.append(tempList)
-    return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "feesUSD", "psUnix"])
+    return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "feesUSD", "psUnix"]).sort_values("psUnix")
 
 
-def get_pool_day_data_info(pool_id):
+def get_pool_day_data_info(pool_id, start_date, end_date):
     logging.info(f"Retreiving Pool Hour Day {pool_id} for Subgraph")
 
     querys = [
@@ -221,7 +234,11 @@ def get_pool_day_data_info(pool_id):
             + pool_id
             + '"){poolDayData(first: 1000, skip: '
             + str(skip)
-            + "){date feesUSD volumeToken0 volumeToken1 volumeUSD}}}"
+            + " orderBy: date orderDirection: desc where: {date_gte: "
+            + str(start_date)
+            + " date_lte: "
+            + str(end_date)
+            + "}){date feesUSD volumeToken0 volumeToken1 volumeUSD}}}"
         )
         for skip in range(0, 6000, 1000)
     ]
@@ -256,15 +273,36 @@ def get_pool_ticks_info(pool_id):
             liqN = float(poolInfo["pool"]["ticks"][i]["liquidityNet"])
             tickIdx = int(poolInfo["pool"]["ticks"][i]["tickIdx"])
             ticks_list.append([liqG, liqN, tickIdx])
-    return pd.DataFrame(ticks_list, columns=["liquidityGross", "liquidityNet", "tickIdx"])
+    return pd.DataFrame(ticks_list, columns=["liquidityGross", "liquidityNet", "tickIdx"]).sort_values("tickIdx")
+
+
+def get_pool_ticks_day_data_info(pool_id, date):
+    "DOES NOT WORK"
+    logging.info(f"Retreiving Pool Tick Day Data {pool_id} for Subgraph")
+
+    querys = [
+        "{tickDayDatas(first: 1000, skip: "
+        + str(skip)
+        + 'where: {pool: "'
+        + pool_id
+        + '" date: '
+        + str(date)
+        + "}){tick {tickIdx} liquidityNet liquidityGross}}"
+        for skip in range(0, 6000, 1000)
+    ]
+
+    results = query_multiple_gql(querys)
+
+    ticks_list = []
+    for poolInfo in results.values():
+        for i in range(len(poolInfo["tickDayDatas"])):
+            liqG = float(poolInfo["tickDayDatas"][i]["liquidityGross"])
+            liqN = float(poolInfo["tickDayDatas"][i]["liquidityNet"])
+            tickIdx = int(poolInfo["tickDayDatas"][i]["tick"]["tickIdx"])
+            ticks_list.append([liqG, liqN, tickIdx])
+    return pd.DataFrame(ticks_list, columns=["liquidityGross", "liquidityNet", "tickIdx"]).sort_values("tickIdx")
 
 
 def get_pool(pool_id: str) -> Pool:
     logging.info(f"Building Pool class {pool_id} from Subgraph")
-
-    return Pool(
-        *get_pool_info(pool_id),
-        OHLC_df=get_pool_hour_data_info(pool_id),
-        OHLC_day_df=get_pool_day_data_info(pool_id),
-        Ticks_df=get_pool_ticks_info(pool_id),
-    )
+    return Pool(*get_pool_info(pool_id))

@@ -44,9 +44,6 @@ class Pool:
     totalValueLockedToken0: str
     totalValueLockedToken1: str
     ethPriceUSD: float
-    OHLC_df: DataFrame
-    OHLC_day_df: DataFrame
-    Ticks_df: DataFrame
 
     def __str__(self):
         return f"Uniswap V3 Pool {self.poolID}: {self.t0symbol}{self.t1symbol} {self.FeeTier/10000}%"

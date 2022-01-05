@@ -1,6 +1,6 @@
 import pandas as pd
 
-from daxis_amm.calculations import uniswap_v3
+from daxis_amm.calculations.uniswap.v3 import utils
 from daxis_amm.calculations.montecarlo import MonteCarlo
 import json
 
@@ -26,6 +26,6 @@ class MockMonteCarlo(MonteCarlo):
     def sim(self, ohlc):
         pass
 
-tv = uniswap_v3.tv(MockMonteCarlo(), ohlc_df, built_ticks_df, token_0_price, token_0_lowerprice,
+tv = utils.tv(MockMonteCarlo(), ohlc_df, built_ticks_df, token_0_price, token_0_lowerprice,
                   token_0_upperprice, amount0, amount1, volume_usd, fee_tier, t0_decimals, t1_decimals)
 print(tv)

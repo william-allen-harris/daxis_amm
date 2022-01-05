@@ -8,8 +8,12 @@ logging.basicConfig()
 logger = logging.getLogger()
 logger.setLevel(logging.ERROR)
 
+def get_pair_id(token0, token1):
+    test_ids = GetIDs(100, 0, "dict")
+    stables = [token0, token1]
+    return [value for key, value in test_ids.items() if all([stable in key for stable in stables])]
 
-ids = GetIDs(10,0)
+ids = GetIDs(10, 0)
 
 for id in ids:
     start = datetime.datetime(2021,12, 29)
