@@ -1,9 +1,10 @@
 "Uniswap V3 Theoretical Value calculator."
 import pandas as pd
+from daxis_amm.calculations.uniswap.v3.deposit_amounts import UniswapV3DepositAmountsCalculator
 
 from daxis_amm.enums import Stables
 from daxis_amm.calculations.base import BaseCalculator
-from daxis_amm.graphs.uniswap_v3.uniswap_v3 import UniswapV3Graph
+from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph
 from daxis_amm.calculations.uniswap.v3 import utils
 
 
@@ -13,23 +14,18 @@ class UniswapV3PnLCalculator(BaseCalculator):
 
     def _get_data(self):
         funcs = {
-            "token0_day_usd_price_df": UniswapV3Graph.get_token_hour_data_info(
-                self.position.pool.t0id, self.start_date, self.end_date
+            "token0_hour_usd_price_df": UniswapV3Graph.get_token_hour_data_info(
+                self.position.pool.token_0.id, self.start_date, self.end_date
             ),
-            "token1_day_usd_price_df": UniswapV3Graph.get_token_hour_data_info(
-                self.position.pool.t1id, self.start_date, self.end_date
-            ),
-            "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.poolID, self.start_date, self.end_date),
-            "ohlc_day_df": UniswapV3Graph.get_pool_day_data_info(self.position.pool.poolID, self.start_date, self.end_date),
-            "ticks_df": UniswapV3Graph.get_pool_ticks_info(self.position.pool.poolID),
-            "token_0_hour_df": UniswapV3Graph.get_token_hour_data_info(self.position.pool.t0id, self.start_date, self.end_date),
+            "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, self.start_date, self.end_date),
+            "ohlc_day_df": UniswapV3Graph.get_pool_day_data_info(self.position.pool.id, self.start_date, self.end_date),
+            "ticks_df": UniswapV3Graph.get_pool_ticks_info(self.position.pool.id),
         }
 
         self.data = UniswapV3Graph.run(funcs)
 
     def _stage_data(self):
-        self.data["token0_day_usd_price_df"] = self.data["token0_day_usd_price_df"].set_index("psUnix")
-        self.data["token1_day_usd_price_df"] = self.data["token1_day_usd_price_df"].set_index("psUnix")
+        self.data["token0_hour_usd_price_df"] = self.data["token0_hour_usd_price_df"].set_index("psUnix")
         self.data["ohlc_hour_df"] = self.data["ohlc_hour_df"].set_index("psUnix")
         self.data["ohlc_day_df"] = self.data["ohlc_day_df"].set_index("Date")
 
@@ -44,20 +40,20 @@ class UniswapV3PnLCalculator(BaseCalculator):
         token_0_upperprice = first_price * (1 + self.position.max_percentage)
 
         last_price = self.data["ohlc_hour_df"].loc[self.end_date]["Close"]
-        usd_x = self.data["token0_day_usd_price_df"].loc[self.end_date]["Close"]
-        usd_y = self.data["token1_day_usd_price_df"].loc[self.end_date]["Close"]
+        usd_x = self.data["token0_hour_usd_price_df"].loc[self.end_date]["Close"]
 
-        amount0, amount1 = utils.get_deposit_amounts(
-            1 / first_price, 1 / token_0_upperprice, 1 / token_0_lowerprice, usd_x, usd_y, self.position.amount
-        )
+        amount0, amount1 = UniswapV3DepositAmountsCalculator(position=self.position, date=self.end_date).run
 
         low = self.data["ohlc_hour_df"]["Low"].min()
         high = self.data["ohlc_hour_df"]["High"].max()
 
-        tick_high = utils.price_to_tick(high, self.position.pool.t0decimals, self.position.pool.t1decimals)
-        tick_low = utils.price_to_tick(low, self.position.pool.t0decimals, self.position.pool.t1decimals)
+        tick_high = utils.price_to_tick(high, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
+        tick_low = utils.price_to_tick(low, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
         ticks = utils.expand_ticks(
-            self.data["ticks_df"], self.position.pool.t0decimals, self.position.pool.t1decimals, self.position.pool.FeeTier
+            self.data["ticks_df"],
+            self.position.pool.token_0.decimals,
+            self.position.pool.token_1.decimals,
+            self.position.pool.fee_tier,
         )
         ticks = ticks[(ticks.index <= tick_low) & (ticks.index >= tick_high)]
 
@@ -65,8 +61,8 @@ class UniswapV3PnLCalculator(BaseCalculator):
         liquidity = utils.calculate_liquidity(
             amount0,
             amount1,
-            self.position.pool.t0decimals,
-            self.position.pool.t1decimals,
+            self.position.pool.token_0.decimals,
+            self.position.pool.token_1.decimals,
             first_price,
             token_0_lowerprice,
             token_0_upperprice,
@@ -83,26 +79,27 @@ class UniswapV3PnLCalculator(BaseCalculator):
         }
 
     def _calculation(self):
-        # Fees
+        # Calculate Accured Fees
         accrued_fees = self.staged_data["total_fees"] * (
             self.staged_data["liquidity"] / (self.staged_data["liquidity"] + self.staged_data["average_liquidity"])
         )
 
         accrued_fees = 0.0 if pd.isna(accrued_fees) else accrued_fees
 
-        # Imperminant Loss
+        # Calculate Imperminant Loss
         x_delta, y_delta = utils.amounts_delta(
             self.staged_data["liquidity"],
             self.staged_data["last_price"],
             self.staged_data["token_0_lowerprice"],
             self.staged_data["token_0_upperprice"],
-            self.position.pool.t0decimals,
-            self.position.pool.t1decimals,
+            self.position.pool.token_0.decimals,
+            self.position.pool.token_1.decimals,
         )
 
-        if Stables.has_member_key(self.position.pool.t0symbol):
+        # Convert to USD
+        if Stables.has_member_key(self.position.pool.token_0.symbol):
             sim_liq = x_delta + y_delta * self.staged_data["last_price"]
-        elif Stables.has_member_key(self.position.pool.t1symbol):
+        elif Stables.has_member_key(self.position.pool.token_1.symbol):
             sim_liq = x_delta * 1 / self.staged_data["last_price"] + y_delta
         else:
             sim_liq = (x_delta + y_delta * self.staged_data["last_price"]) * self.staged_data["usd_x"]

@@ -5,7 +5,8 @@ import pandas as pd
 from toolz import get_in
 
 from daxis_amm.calculations.base import BaseCalculator
-from daxis_amm.graphs.uniswap_v3.uniswap_v3 import UniswapV3Graph
+from daxis_amm.calculations.uniswap.v3.deposit_amounts import UniswapV3DepositAmountsCalculator
+from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph
 from daxis_amm.calculations.uniswap.v3 import utils
 
 
@@ -34,10 +35,10 @@ class UniswapV3TVCalculator(BaseCalculator):
     def _get_data(self):
         start_date = self.value_date - (5 * 24 * 60 * 60)
         funcs = {
-            "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.poolID, start_date, self.value_date),
-            "ohlc_day_df": UniswapV3Graph.get_pool_day_data_info(self.position.pool.poolID, start_date, self.value_date),
-            "ticks_df": UniswapV3Graph.get_pool_ticks_info(self.position.pool.poolID),
-            "token_0_hour_df": UniswapV3Graph.get_token_hour_data_info(self.position.pool.t0id, start_date, self.value_date),
+            "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, start_date, self.value_date),
+            "ohlc_day_df": UniswapV3Graph.get_pool_day_data_info(self.position.pool.id, start_date, self.value_date),
+            "ticks_df": UniswapV3Graph.get_pool_ticks_info(self.position.pool.id),
+            "token_0_hour_df": UniswapV3Graph.get_token_hour_data_info(self.position.pool.token_0.id, start_date, self.value_date),
         }
         self.data = UniswapV3Graph.run(funcs)
 
@@ -45,7 +46,7 @@ class UniswapV3TVCalculator(BaseCalculator):
         average_day_fees = self.data["ohlc_day_df"]["FeesUSD"].mean()
 
         ticks = utils.expand_ticks(
-            self.data["ticks_df"], self.position.pool.t0decimals, self.position.pool.t1decimals, self.position.pool.FeeTier
+            self.data["ticks_df"], self.position.pool.token_0.decimals, self.position.pool.token_1.decimals, self.position.pool.fee_tier
         )
         tick_index = ticks.to_dict("index")
 
@@ -53,16 +54,20 @@ class UniswapV3TVCalculator(BaseCalculator):
 
         price_sim = self.simulator.sim(self.data["ohlc_hour_df"], time_delta)
         price_usd_sim = self.simulator.sim(self.data["token_0_hour_df"], time_delta)
+        
+        price = self.data["ohlc_hour_df"].set_index('psUnix').loc[self.value_date]["Close"]
+        token_0_lowerprice = price * (1 - self.position.min_percentage)
+        token_0_upperprice = price * (1 + self.position.max_percentage)
 
-        amount0, amount1 = self.position.deposit_amounts
+        amount0, amount1 = UniswapV3DepositAmountsCalculator(position=self.position, date=self.value_date).run
         liquidity = utils.calculate_liquidity(
             amount0,
             amount1,
-            self.position.pool.t0decimals,
-            self.position.pool.t1decimals,
-            self.position.pool.token0Price,
-            self.position.token_0_min_price,
-            self.position.token_0_max_price,
+            self.position.pool.token_0.decimals,
+            self.position.pool.token_1.decimals,
+            price,
+            token_0_lowerprice,
+            token_0_upperprice,
         )
 
         self.staged_data = {
@@ -71,6 +76,8 @@ class UniswapV3TVCalculator(BaseCalculator):
             "price_sim": price_sim,
             "price_usd_sim": price_usd_sim,
             "liquidity": liquidity,
+            "token_0_lowerprice": token_0_lowerprice,
+            "token_0_upperprice": token_0_upperprice
         }
 
     def _calculation(self):
@@ -82,8 +89,8 @@ class UniswapV3TVCalculator(BaseCalculator):
             # Calculate the Accrued Fees.
             col_fees = []
             for node in self.staged_data["price_sim"][col]:
-                tick = utils.price_to_tick(node, self.position.pool.t0decimals, self.position.pool.t1decimals)
-                closest_tick_spacing = tick - tick % utils.tick_spacing(self.position.pool.FeeTier)
+                tick = utils.price_to_tick(node, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
+                closest_tick_spacing = tick - tick % utils.tick_spacing(self.position.pool.fee_tier)
                 tick_liquidity = get_in([closest_tick_spacing, "Liquidity"], self.staged_data["tick_index"], 0.0)
                 average_fee_revenue = (
                     (self.staged_data["liquidity"] / (tick_liquidity + self.staged_data["liquidity"]))
@@ -98,13 +105,14 @@ class UniswapV3TVCalculator(BaseCalculator):
             x_delta, y_delta = utils.amounts_delta(
                 self.staged_data["liquidity"],
                 last_price,
-                self.position.token_0_min_price,
-                self.position.token_0_max_price,
-                self.position.pool.t0decimals,
-                self.position.pool.t1decimals,
+                self.staged_data["token_0_lowerprice"],
+                self.staged_data["token_0_upperprice"],
+                self.position.pool.token_0.decimals,
+                self.position.pool.token_1.decimals,
             )
-            sim_liq = (x_delta + y_delta * last_price) * self.staged_data["price_usd_sim"][col][-1]
 
+            # Convert to USD
+            sim_liq = (x_delta + y_delta * last_price) * self.staged_data["price_usd_sim"][col][-1]
             deposit_amounts_usd.append(sim_liq)
 
         tvs = [fee + imp for imp, fee in zip(deposit_amounts_usd, fees)]
