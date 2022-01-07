@@ -33,13 +33,13 @@ class UniswapV3TVCalculator(BaseCalculator):
 
     def _get_data(self):
         start_date = self.value_date - (5 * 24 * 60 * 60)
-        funcs_dict = {
-            "ohlc_hour_df": (UniswapV3Graph.get_pool_hour_data_info, (self.position.pool.poolID, start_date, self.value_date)),
-            "ohlc_day_df": (UniswapV3Graph.get_pool_day_data_info, (self.position.pool.poolID, start_date, self.value_date)),
-            "ticks_df": (UniswapV3Graph.get_pool_ticks_info, (self.position.pool.poolID,)),
-            "token_0_hour_df": (UniswapV3Graph.get_token_hour_data_info, (self.position.pool.t0id, start_date, self.value_date)),
+        funcs = {
+            "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.poolID, start_date, self.value_date),
+            "ohlc_day_df": UniswapV3Graph.get_pool_day_data_info(self.position.pool.poolID, start_date, self.value_date),
+            "ticks_df": UniswapV3Graph.get_pool_ticks_info(self.position.pool.poolID),
+            "token_0_hour_df": UniswapV3Graph.get_token_hour_data_info(self.position.pool.t0id, start_date, self.value_date),
         }
-        self.data = UniswapV3Graph.multiprocess(funcs_dict)
+        self.data = UniswapV3Graph.run(funcs)
 
     def _stage_data(self):
         average_day_fees = self.data["ohlc_day_df"]["FeesUSD"].mean()

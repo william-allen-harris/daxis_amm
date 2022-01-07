@@ -1,8 +1,10 @@
 import logging
+import asyncio
 
 import pandas as pd
 from gql import Client
-from gql.transport.requests import RequestsHTTPTransport
+from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.async_transport import AsyncTransport
 
 from daxis_amm.instruments.uniswap_v3 import Pool
 
@@ -10,23 +12,20 @@ from daxis_amm.graphs.base import BaseGraph
 
 
 class UniswapV3Graph(BaseGraph):
-    client: Client = Client(
-        transport=RequestsHTTPTransport(
-            url="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3",  #'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
-            verify=True,
-            retries=5,
-        )
-    )
+    transporter: AsyncTransport = AIOHTTPTransport(url="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3")
 
     @classmethod
-    def get_pool_info(cls, pool_id):
+    async def get_pool_info(cls, pool_id):
         logging.info(f"Retreiving Pool {pool_id} Info for Subgraph")
-        query = (
-            '{pool(id: "'
-            + pool_id
-            + '"){id feeTier liquidity sqrtPrice feeGrowthGlobal0X128 feeGrowthGlobal1X128 token0Price token1Price tick observationIndex volumeToken0 volumeToken1 volumeUSD untrackedVolumeUSD feesUSD txCount collectedFeesToken0 collectedFeesToken1 collectedFeesUSD liquidityProviderCount totalValueLockedUSD totalValueLockedETH totalValueLockedToken0 totalValueLockedToken1 token0{id symbol decimals derivedETH}token1{id symbol decimals derivedETH}}bundles{ethPriceUSD}}'
-        )
-        result = cls.query_gpl(query)
+        query = [
+            (
+                '{pool(id: "'
+                + pool_id
+                + '"){id feeTier liquidity sqrtPrice feeGrowthGlobal0X128 feeGrowthGlobal1X128 token0Price token1Price tick observationIndex volumeToken0 volumeToken1 volumeUSD untrackedVolumeUSD feesUSD txCount collectedFeesToken0 collectedFeesToken1 collectedFeesUSD liquidityProviderCount totalValueLockedUSD totalValueLockedETH totalValueLockedToken0 totalValueLockedToken1 token0{id symbol decimals derivedETH}token1{id symbol decimals derivedETH}}bundles{ethPriceUSD}}'
+            )
+        ]
+        results = await cls.query_gql(query)
+        result = results[0]
         sqrtPrice = result["pool"]["sqrtPrice"]
         liq = result["pool"]["liquidity"]
         feeTier = int(result["pool"]["feeTier"])
@@ -97,7 +96,7 @@ class UniswapV3Graph(BaseGraph):
         ]
 
     @classmethod
-    def get_token_day_data_info(cls, token_id):
+    async def get_token_day_data_info(cls, token_id):
         logging.info(f"Retreiving Token Day Data {token_id} for Subgraph")
 
         querys = [
@@ -110,10 +109,10 @@ class UniswapV3Graph(BaseGraph):
             )
             for skip in range(0, 6000, 1000)
         ]
-        results = cls.query_multiple_gql(querys)
+        results = await cls.query_gql(querys)
 
         ohlc_hour_list = []
-        for poolInfo in results.values():
+        for poolInfo in results:
             for i in range(len(poolInfo["token"]["tokenDayData"])):
                 close = float(poolInfo["token"]["tokenDayData"][i]["close"])
                 high = float(poolInfo["token"]["tokenDayData"][i]["high"])
@@ -125,7 +124,7 @@ class UniswapV3Graph(BaseGraph):
         return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "Date"])
 
     @classmethod
-    def get_token_hour_data_info(cls, token_id: str, start_date, end_date):
+    async def get_token_hour_data_info(cls, token_id: str, start_date, end_date):
         logging.info(f"Retreiving Token Hour Data {token_id} for Subgraph")
 
         querys = [
@@ -142,10 +141,10 @@ class UniswapV3Graph(BaseGraph):
             )
             for skip in range(0, 6000, 1000)
         ]
-        results = cls.query_multiple_gql(querys)
+        results = await cls.query_gql(querys)
 
         ohlc_hour_list = []
-        for poolInfo in results.values():
+        for poolInfo in results:
             for i in range(len(poolInfo["tokenHourDatas"])):
                 close = float(poolInfo["tokenHourDatas"][i]["close"])
                 high = float(poolInfo["tokenHourDatas"][i]["high"])
@@ -157,7 +156,7 @@ class UniswapV3Graph(BaseGraph):
         return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "psUnix"]).sort_values("psUnix")
 
     @classmethod
-    def get_pool_hour_data_info(cls, pool_id, start_date, end_date):
+    async def get_pool_hour_data_info(cls, pool_id, start_date, end_date):
         logging.info(f"Retreiving Pool Hour Data {pool_id} for Subgraph")
 
         querys = [
@@ -175,10 +174,10 @@ class UniswapV3Graph(BaseGraph):
             for skip in range(0, 6000, 1000)
         ]
 
-        results = cls.query_multiple_gql(querys)
+        results = await cls.query_gql(querys)
 
         ohlc_hour_list = []
-        for poolInfo in results.values():
+        for poolInfo in results:
             for i in range(len(poolInfo["pool"]["poolHourData"])):
                 close = float(poolInfo["pool"]["poolHourData"][i]["close"])
                 high = float(poolInfo["pool"]["poolHourData"][i]["high"])
@@ -191,7 +190,7 @@ class UniswapV3Graph(BaseGraph):
         return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "feesUSD", "psUnix"]).sort_values("psUnix")
 
     @classmethod
-    def get_pool_day_data_info(cls, pool_id, start_date, end_date):
+    async def get_pool_day_data_info(cls, pool_id, start_date, end_date):
         logging.info(f"Retreiving Pool Hour Day {pool_id} for Subgraph")
 
         querys = [
@@ -208,10 +207,10 @@ class UniswapV3Graph(BaseGraph):
             )
             for skip in range(0, 6000, 1000)
         ]
-        results = cls.query_multiple_gql(querys)
+        results = await cls.query_gql(querys)
 
         ohlc_day_list = []
-        for poolInfo in results.values():
+        for poolInfo in results:
             for i in range(len(poolInfo["pool"]["poolDayData"])):
                 fees_usd = float(poolInfo["pool"]["poolDayData"][i]["feesUSD"])
                 volume_token0 = float(poolInfo["pool"]["poolDayData"][i]["volumeToken0"])
@@ -223,17 +222,17 @@ class UniswapV3Graph(BaseGraph):
         return pd.DataFrame(ohlc_day_list, columns=["Date", "FeesUSD", "volumeToken0", "volumeToken1", "volumeUSD"])
 
     @classmethod
-    def get_pool_ticks_info(cls, pool_id):
+    async def get_pool_ticks_info(cls, pool_id):
         logging.info(f"Retreiving Pool Tick {pool_id} for Subgraph")
 
         querys = [
             ('{pool(id: "' + pool_id + '"){ticks(first: 1000, skip: ' + str(skip) + "){tickIdx liquidityNet liquidityGross}}}")
             for skip in range(0, 6000, 1000)
         ]
-        results = cls.query_multiple_gql(querys)
+        results = await cls.query_gql(querys)
 
         ticks_list = []
-        for poolInfo in results.values():
+        for poolInfo in results:
             for i in range(len(poolInfo["pool"]["ticks"])):
                 liqG = float(poolInfo["pool"]["ticks"][i]["liquidityGross"])
                 liqN = float(poolInfo["pool"]["ticks"][i]["liquidityNet"])
@@ -242,7 +241,7 @@ class UniswapV3Graph(BaseGraph):
         return pd.DataFrame(ticks_list, columns=["liquidityGross", "liquidityNet", "tickIdx"]).sort_values("tickIdx")
 
     @classmethod
-    def get_pool_ticks_day_data_info(cls, pool_id, date):
+    async def get_pool_ticks_day_data_info(cls, pool_id, date):
         "DOES NOT WORK"
         logging.info(f"Retreiving Pool Tick Day Data {pool_id} for Subgraph")
 
@@ -257,10 +256,10 @@ class UniswapV3Graph(BaseGraph):
             for skip in range(0, 6000, 1000)
         ]
 
-        results = cls.query_multiple_gql(querys)
+        results = await cls.query_gql(querys)
 
         ticks_list = []
-        for poolInfo in results.values():
+        for poolInfo in results:
             for i in range(len(poolInfo["tickDayDatas"])):
                 liqG = float(poolInfo["tickDayDatas"][i]["liquidityGross"])
                 liqN = float(poolInfo["tickDayDatas"][i]["liquidityNet"])
@@ -271,4 +270,18 @@ class UniswapV3Graph(BaseGraph):
 
 def get_pool(pool_id: str) -> Pool:
     logging.info(f"Building Pool class {pool_id} from Subgraph")
-    return Pool(*UniswapV3Graph.get_pool_info(pool_id))
+    info = UniswapV3Graph.run({'pool_info': UniswapV3Graph.get_pool_info(pool_id)})
+    return Pool(*list(info.values())[0])
+
+
+#Client(
+#    transport=AIOHTTPTransport(
+#        url="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+#    ),  #'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
+#    fetch_schema_from_transport=True,
+#)
+#print(
+#    UniswapV3Graph.run(
+#        {'testing': UniswapV3Graph.get_pool_day_data_info("0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8", "1641120978", "1641578178"), 'testing2': UniswapV3Graph.get_pool_ticks_info("0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8")}
+#    )
+#)

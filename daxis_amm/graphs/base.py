@@ -1,23 +1,24 @@
 "Abstract Classes for Graphs."
 import logging
-import multiprocessing
-from typing import Callable, Dict, Any, Tuple
+import asyncio
+from typing import Any, Coroutine, List, Dict, Tuple, Type
 
 from gql import Client, gql
+from gql.transport.aiohttp import AIOHTTPTransport
 
 
 class BaseGraph:
     "Base Graph."
-    client: Client
+    url: str = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
 
-    @classmethod
-    def query_gpl(cls, query: str) -> dict:
-        "Query a Client."
+    @staticmethod
+    async def __query_gpl(session: Client, query: str) -> dict:
+        "Query the gql graph."
         counter = 1
         while True:
             try:
                 logging.info(f"Retreiving {query} for Subgraph")
-                query_result = cls.client.execute(gql(query))
+                query_result = await session.execute(gql(query))
             except Exception as err:
                 logging.warning(f"Retrying(total={counter}. trying again... Error: {err}")
                 counter += 1
@@ -29,46 +30,22 @@ class BaseGraph:
         return query_result
 
     @classmethod
-    def wrapper_query_gpl(cls, query: str, return_dict: dict) -> None:
-        "Wrapper for querying a client. Used for multiprocessing."
-        return_dict[query] = cls.query_gpl(query)
-
-    @classmethod
-    def query_multiple_gql(cls, querys: list[str]) -> dict:
+    async def query_gql(cls, querys: list[str]) -> Tuple[Dict]:
         "Perform multiple queries similtaniously."
-        manager = multiprocessing.Manager()
-        return_dict = manager.dict()
+        transporter = AIOHTTPTransport(url=cls.url)
+        async with Client(transport=transporter, fetch_schema_from_transport=True) as session:
+            tasks = [cls.__query_gpl(session, query) for query in querys]
+            responses = await asyncio.gather(*tasks)
+        return responses
 
-        jobs = []
-        for query in querys:
-            process = multiprocessing.Process(target=cls.wrapper_query_gpl, args=(query, return_dict))
-            jobs.append(process)
-            process.start()
-
-        for process in jobs:
-            process.join()
-
-        return return_dict
+    @staticmethod
+    async def __wrapped_funcs(funcs: List[Coroutine]):
+        "Perform multiple asyncio Graph functions similtaniously."
+        responses = await asyncio.gather(*funcs, return_exceptions=True)
+        return responses
 
     @classmethod
-    def wrapper_get_data(cls, func: Callable, name: str, return_dict: dict, args: tuple) -> None:
-        "Wrapper to run get data functions similtaniously."
-        return_dict[name] = func(*args)
-
-    @classmethod
-    def multiprocess(cls, funcs_dict: Dict[str, Tuple[Callable, tuple]]) -> dict:
+    def run(cls, funcs: Dict[str, Coroutine]) -> Dict[str, Any]:
         "Perform multiple queries similtaniously."
-        manager = multiprocessing.Manager()
-        return_dict = manager.dict()
-
-        jobs = []
-        for name in funcs_dict:
-            func, args = funcs_dict[name]
-            process = multiprocessing.Process(target=cls.wrapper_get_data, args=(func, name, return_dict, args))
-            jobs.append(process)
-            process.start()
-
-        for process in jobs:
-            process.join()
-
-        return return_dict
+        wrapped_funcs = cls.__wrapped_funcs(list(funcs.values()))
+        return dict(zip(funcs.keys(), asyncio.get_event_loop().run_until_complete(wrapped_funcs)))
