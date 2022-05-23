@@ -38,7 +38,9 @@ class UniswapV3TVCalculator(BaseCalculator):
             "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, start_date, self.value_date),
             "ohlc_day_df": UniswapV3Graph.get_pool_day_data_info(self.position.pool.id, start_date, self.value_date),
             "ticks_df": UniswapV3Graph.get_pool_ticks_info(self.position.pool.id),
-            "token_0_hour_df": UniswapV3Graph.get_token_hour_data_info(self.position.pool.token_0.id, start_date, self.value_date),
+            "token_0_hour_df": UniswapV3Graph.get_token_hour_data_info(
+                self.position.pool.token_0.id, start_date, self.value_date
+            ),
         }
         self.data = UniswapV3Graph.run(funcs)
 
@@ -46,16 +48,23 @@ class UniswapV3TVCalculator(BaseCalculator):
         average_day_fees = self.data["ohlc_day_df"]["FeesUSD"].mean()
 
         ticks = utils.expand_ticks(
-            self.data["ticks_df"], self.position.pool.token_0.decimals, self.position.pool.token_1.decimals, self.position.pool.fee_tier
+            self.data["ticks_df"],
+            self.position.pool.token_0.decimals,
+            self.position.pool.token_1.decimals,
+            self.position.pool.fee_tier,
         )
         tick_index = ticks.to_dict("index")
 
         time_delta = int((self.value_date - self.start_date) / (60 * 60))
 
-        price_sim = self.simulator.sim(self.data["ohlc_hour_df"], time_delta)
-        price_usd_sim = self.simulator.sim(self.data["token_0_hour_df"], time_delta)
-        
-        price = self.data["ohlc_hour_df"].set_index('psUnix').loc[self.value_date]["Close"]
+        price_sim = self.simulator.sim(
+            self.data["ohlc_hour_df"].iloc["Close", -1], 0.0, self.data["ohlc_hour_df"]["Close"].std(), time_delta
+        )
+        price_usd_sim = self.simulator.sim(
+            self.data["token_0_hour_df"].iloc["Close", -1], 0.0, self.data["token_0_hour_df"]["Close"].std(), time_delta
+        )
+
+        price = self.data["ohlc_hour_df"].set_index("psUnix").loc[self.value_date]["Close"]
         token_0_lowerprice = price * (1 - self.position.min_percentage)
         token_0_upperprice = price * (1 + self.position.max_percentage)
 
@@ -77,7 +86,7 @@ class UniswapV3TVCalculator(BaseCalculator):
             "price_usd_sim": price_usd_sim,
             "liquidity": liquidity,
             "token_0_lowerprice": token_0_lowerprice,
-            "token_0_upperprice": token_0_upperprice
+            "token_0_upperprice": token_0_upperprice,
         }
 
     def _calculation(self):
