@@ -1,5 +1,5 @@
 """
-Module defining Montecarlo calculations. Used for simulating price returns.
+Module defining Montecarlo calculations.
 """
 import numpy as np
 

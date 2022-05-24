@@ -1,5 +1,7 @@
+"""
+Module defining the Uniswap V3 Graphs.
+"""
 import logging
-import asyncio
 
 import pandas as pd
 from gql.transport.aiohttp import AIOHTTPTransport
@@ -17,7 +19,11 @@ class UniswapV3Graph(BaseGraph):
     async def get_static_pool_info(cls, pool_id):
         logging.info(f"Retreiving Pool {pool_id} Static Info for Subgraph")
         query = [
-            ('{pool(id: "' + pool_id + '"){id feeTier token0{id symbol name decimals totalSupply}token1{id symbol name decimals totalSupply}}}')
+            (
+                '{pool(id: "'
+                + pool_id
+                + '"){id feeTier token0{id symbol name decimals totalSupply}token1{id symbol name decimals totalSupply}}}'
+            )
         ]
         results = await cls.query_gql(query)
         return results[0]
@@ -68,39 +74,39 @@ class UniswapV3Graph(BaseGraph):
         ethPriceUSD = float(result["bundles"][0]["ethPriceUSD"])
 
         return {
-            'pool_id': pool_id,
-            'liq': liq,
-            'feeTier': feeTier,
-            'sqrtPrice': sqrtPrice,
-            't0id': t0id,
-            't0symbol': t0symbol,
-            't0decimals': t0decimals,
-            't0derivedETH': t0derivedETH,
-            't1id': t1id,
-            't1symbol': t1symbol,
-            't1decimals': t1decimals,
-            't1derivedETH': t1derivedETH,
-            'feeGrowthGlobal0X128': feeGrowthGlobal0X128,
-            'feeGrowthGlobal1X128': feeGrowthGlobal1X128,
-            'token0Price': token0Price,
-            'token1Price': token1Price,
-            'tick': tick,
-            'observationIndex': observationIndex,
-            'volumeToken0': volumeToken0,
-            'volumeToken1': volumeToken1,
-            'volumeUSD': volumeUSD,
-            'untrackedVolumeUSD': untrackedVolumeUSD,
-            'feesUSD': feesUSD,
-            'txCount': txCount,
-            'collectedFeesToken0': collectedFeesToken0,
-            'collectedFeesToken1': collectedFeesToken1,
-            'collectedFeesUSD': collectedFeesUSD,
-            'liquidityProviderCount': liquidityProviderCount,
-            'totalValueLockedUSD': totalValueLockedUSD,
-            'totalValueLockedETH': totalValueLockedETH,
-            'totalValueLockedToken0': totalValueLockedToken0,
-            'totalValueLockedToken1': totalValueLockedToken1,
-            'ethPriceUSD': ethPriceUSD,
+            "pool_id": pool_id,
+            "liq": liq,
+            "feeTier": feeTier,
+            "sqrtPrice": sqrtPrice,
+            "t0id": t0id,
+            "t0symbol": t0symbol,
+            "t0decimals": t0decimals,
+            "t0derivedETH": t0derivedETH,
+            "t1id": t1id,
+            "t1symbol": t1symbol,
+            "t1decimals": t1decimals,
+            "t1derivedETH": t1derivedETH,
+            "feeGrowthGlobal0X128": feeGrowthGlobal0X128,
+            "feeGrowthGlobal1X128": feeGrowthGlobal1X128,
+            "token0Price": token0Price,
+            "token1Price": token1Price,
+            "tick": tick,
+            "observationIndex": observationIndex,
+            "volumeToken0": volumeToken0,
+            "volumeToken1": volumeToken1,
+            "volumeUSD": volumeUSD,
+            "untrackedVolumeUSD": untrackedVolumeUSD,
+            "feesUSD": feesUSD,
+            "txCount": txCount,
+            "collectedFeesToken0": collectedFeesToken0,
+            "collectedFeesToken1": collectedFeesToken1,
+            "collectedFeesUSD": collectedFeesUSD,
+            "liquidityProviderCount": liquidityProviderCount,
+            "totalValueLockedUSD": totalValueLockedUSD,
+            "totalValueLockedETH": totalValueLockedETH,
+            "totalValueLockedToken0": totalValueLockedToken0,
+            "totalValueLockedToken1": totalValueLockedToken1,
+            "ethPriceUSD": ethPriceUSD,
         }
 
     @classmethod
@@ -277,6 +283,7 @@ class UniswapV3Graph(BaseGraph):
 
 
 def get_pool(pool_id: str) -> Pool:
+    "Build a Pool class from a pool_id."
     logging.info(f"Building Pool class {pool_id} from Subgraph")
     info = UniswapV3Graph.run({"pool_info": UniswapV3Graph.get_static_pool_info(pool_id)})
 
@@ -287,15 +294,15 @@ def get_pool(pool_id: str) -> Pool:
         id=str(info["pool_info"]["pool"]["token0"]["id"]),
         decimals=int(info["pool_info"]["pool"]["token0"]["decimals"]),
         symbol=str(info["pool_info"]["pool"]["token0"]["symbol"]),
-        total_supply=int(info['pool_info']['pool']['token0']['totalSupply']),
-        name=str(info['pool_info']['pool']['token0']['name'])
+        total_supply=int(info["pool_info"]["pool"]["token0"]["totalSupply"]),
+        name=str(info["pool_info"]["pool"]["token0"]["name"]),
     )
 
     token_1 = Token(
         id=str(info["pool_info"]["pool"]["token1"]["id"]),
         decimals=int(info["pool_info"]["pool"]["token1"]["decimals"]),
         symbol=str(info["pool_info"]["pool"]["token1"]["symbol"]),
-        total_supply=int(info['pool_info']['pool']['token1']['totalSupply']),
-        name=str(info['pool_info']['pool']['token1']['name'])
+        total_supply=int(info["pool_info"]["pool"]["token1"]["totalSupply"]),
+        name=str(info["pool_info"]["pool"]["token1"]["name"]),
     )
     return Pool(id=pool_id, fee_tier=fee_tier, token_0=token_0, token_1=token_1)

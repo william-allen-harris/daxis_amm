@@ -1,5 +1,5 @@
 """
-Module defining Uniswap V3 functions used to complete calculations.
+Module defining the Uniswap V3 utility functions.
 """
 import math
 from typing import Tuple
@@ -74,14 +74,14 @@ def price_to_tick(price: float, decimals_x: int, decimals_y: int) -> int:
     """
     Convert price to a tick.
     """
-    return math.floor(math.log(1 / price * (10 ** decimals_y) / (10 ** decimals_x)) / math.log(1.0001))
+    return math.floor(math.log(1 / price * (10**decimals_y) / (10**decimals_x)) / math.log(1.0001))
 
 
 def tick_to_price(tick: int, decimals_x: int, decimals_y: int) -> float:
     """
     Convert a tick value to prices. Returns Price1.
     """
-    return 1.0001 ** (tick) * (10 ** decimals_x) / (10 ** decimals_y)
+    return 1.0001 ** (tick) * (10**decimals_x) / (10**decimals_y)
 
 
 def tick_spacing(fee_tier: int) -> int:

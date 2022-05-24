@@ -1,15 +1,15 @@
 "Abstract Classes for Graphs."
 import logging
 import asyncio
-from typing import Any, Coroutine, List, Dict, Tuple, Type
+from typing import Any, Coroutine, List, Dict, Tuple
 
 from gql import Client, gql
-from gql.transport.aiohttp import AIOHTTPTransport
+from gql.transport.async_transport import AsyncTransport
 
 
 class BaseGraph:
     "Base Graph."
-    url: str = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
+    transporter: AsyncTransport
 
     @staticmethod
     async def __query_gpl(session: Client, query: str) -> dict:
@@ -32,8 +32,7 @@ class BaseGraph:
     @classmethod
     async def query_gql(cls, querys: list[str]) -> Tuple[Dict]:
         "Perform multiple queries similtaniously."
-        transporter = AIOHTTPTransport(url=cls.url)
-        async with Client(transport=transporter, fetch_schema_from_transport=True) as session:
+        async with Client(transport=cls.transporter, fetch_schema_from_transport=True) as session:
             tasks = [cls.__query_gpl(session, query) for query in querys]
             responses = await asyncio.gather(*tasks)
         return responses

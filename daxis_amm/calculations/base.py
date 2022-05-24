@@ -1,46 +1,30 @@
 "Abstract Classes for Calculations."
 from abc import ABC, abstractmethod
-from typing import Any
+from dataclasses import dataclass
 
-from pydantic import BaseModel
+from toolz import pipe
+
+from daxis_amm.positions.base import BasePosition
 
 
-class BaseABC(ABC):
+@dataclass
+class BaseCalculator(ABC):
+    position: BasePosition
+
     "Abstract Method for Calculations."
 
     @abstractmethod
-    def _get_data(self):
-        "Get data and assign it to self._data."
+    def get_data(self):
+        "Get data for the calculator from a graph class."
 
     @abstractmethod
-    def _stage_data(self):
-        "Stage data and assign it to self.__staged_data."
+    def stage_data(self, data):
+        "Stage data the data which will be used in in the calculation."
 
     @abstractmethod
-    def _calculation(self):
-        "Calculate the calculation and assign it to self._result."
+    def calculation(self, staged_data):
+        "Calculate the result."
 
-
-class BaseCalculator(BaseABC, BaseModel):
-    "Base Calcuatlor."
-    position: Any
-    data: Any = None
-    staged_data: Any = None
-    result: Any = None
-
-    def _get_data(self):
-        pass
-
-    def _stage_data(self):
-        pass
-
-    def _calculation(self):
-        pass
-
-    @property
     def run(self):
-        "Get the result of the Calculation."
-        self._get_data()
-        self._stage_data()
-        self._calculation()
-        return self.result
+        "Run all of the components in the calculator and return the result."
+        return pipe(self.get_data, self.stage_data, self.calculation)

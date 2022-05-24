@@ -1,5 +1,8 @@
 # daxis_amm
 
+1. Create a pricing engine which estimates Uniswap V3 Liquidity Positions -> https://uniswap.org/whitepaper-v3.pdf
+2. Extend for other DeFi products to identify attactive risk-adjusted return LPs.
+
 Requirements:
 1. Vscode - https://code.visualstudio.com/Download
 2. Docker - https://www.docker.com/

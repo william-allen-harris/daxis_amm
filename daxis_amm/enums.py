@@ -1,4 +1,6 @@
-"Module for all Enums."
+"""
+Module defining Daxis AMM Enums.
+"""
 from enum import Enum
 
 
