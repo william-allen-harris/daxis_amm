@@ -4,12 +4,12 @@ import asyncio
 from typing import Any, Coroutine, List, Dict, Tuple
 
 from gql import Client, gql
-from gql.transport.async_transport import AsyncTransport
+from gql.transport.aiohttp import AIOHTTPTransport
 
 
 class BaseGraph:
     "Base Graph."
-    transporter: AsyncTransport
+    url: str
 
     @staticmethod
     async def __query_gpl(session: Client, query: str) -> dict:
@@ -32,7 +32,7 @@ class BaseGraph:
     @classmethod
     async def query_gql(cls, querys: list[str]) -> Tuple[Dict]:
         "Perform multiple queries similtaniously."
-        async with Client(transport=cls.transporter, fetch_schema_from_transport=True) as session:
+        async with Client(transport=AIOHTTPTransport(url=cls.url), fetch_schema_from_transport=True) as session:
             tasks = [cls.__query_gpl(session, query) for query in querys]
             responses = await asyncio.gather(*tasks)
         return responses

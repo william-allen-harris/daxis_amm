@@ -1,6 +1,7 @@
 """
 Module defining the Uniswap V3 Pnl Calculators.
 """
+from dataclasses import dataclass
 import pandas as pd
 from daxis_amm.calculations.uniswap.v3.deposit_amounts import UniswapV3DepositAmountsCalculator
 
@@ -10,6 +11,7 @@ from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph
 from daxis_amm.calculations.uniswap.v3 import utils
 
 
+@dataclass
 class UniswapV3PnLCalculator(BaseCalculator):
     start_date: int
     end_date: int
@@ -70,7 +72,7 @@ class UniswapV3PnLCalculator(BaseCalculator):
             token_0_upperprice,
         )
         total_fees = data["ohlc_day_df"]["FeesUSD"].sum()
-        staged_data = {
+        return {
             "liquidity": liquidity,
             "average_liquidity": average_liquidity,
             "last_price": last_price,
@@ -106,6 +108,6 @@ class UniswapV3PnLCalculator(BaseCalculator):
         else:
             sim_liq = (x_delta + y_delta * staged_data["last_price"]) * staged_data["usd_x"]
 
-        self.result = pd.Series(
+        return pd.Series(
             {"Fees USD": accrued_fees, "Deposit Amounts USD": sim_liq, "PnL": (accrued_fees + sim_liq - self.position.amount)}
         )

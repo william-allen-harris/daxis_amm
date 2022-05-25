@@ -2,8 +2,9 @@
 Module defining the Uniswap V3 Liquidity Position Class.
 """
 from dataclasses import dataclass
-
 from datetime import datetime
+
+import pandas as pd
 
 from daxis_amm.calculations import montecarlo
 from daxis_amm.calculations.uniswap.v3.deposit_amounts import UniswapV3DepositAmountsCalculator
@@ -56,7 +57,12 @@ class UniswapV3LP(BasePosition):
         start_date = int(self.start_date.timestamp())
         value_date = int(value_date.timestamp())
 
-        return UniswapV3TVCalculator(position=self, simulator=simulator, start_date=start_date, value_date=value_date).run()
+        tv = UniswapV3TVCalculator(position=self, simulator=simulator, start_date=start_date, value_date=value_date).run()
+
+        if return_type == "sum":
+            return pd.Series({"TV": tv["TV"].mean()})
+
+        return tv
 
     def pnl(self, value_date):
         "Calculate profit or loss."

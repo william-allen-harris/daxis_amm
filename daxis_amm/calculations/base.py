@@ -27,4 +27,4 @@ class BaseCalculator(ABC):
 
     def run(self):
         "Run all of the components in the calculator and return the result."
-        return pipe(self.get_data, self.stage_data, self.calculation)
+        return pipe(self.get_data(), self.stage_data, self.calculation)

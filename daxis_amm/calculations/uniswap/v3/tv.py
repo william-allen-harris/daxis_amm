@@ -1,6 +1,7 @@
 """
 Module defining the Uniswap V3 Theoretical Value Calculators.
 """
+from dataclasses import dataclass
 from typing import Any
 
 import pandas as pd
@@ -12,6 +13,7 @@ from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph
 from daxis_amm.calculations.uniswap.v3 import utils
 
 
+@dataclass
 class UniswapV3TVCalculator(BaseCalculator):
     start_date: int
     value_date: int
@@ -57,13 +59,13 @@ class UniswapV3TVCalculator(BaseCalculator):
         )
         tick_index = ticks.to_dict("index")
 
-        time_delta = int((self.value_date - self.start_date) / (60 * 60))
+        time_delta = int((self.value_date - self.start_date) / (60 * 60 * 24))
 
         price_sim = self.simulator.sim(
-            data["ohlc_hour_df"].iloc["Close", -1], 0.0, data["ohlc_hour_df"]["Close"].std(), time_delta
+            data["ohlc_hour_df"]["Close"].iloc[-1], 0.0, data["ohlc_hour_df"]["Close"].std()/100, time_delta
         )
         price_usd_sim = self.simulator.sim(
-            data["token_0_hour_df"].iloc["Close", -1], 0.0, data["token_0_hour_df"]["Close"].std(), time_delta
+            data["token_0_hour_df"]["Close"].iloc[-1], 0.0, data["token_0_hour_df"]["Close"].std()/100, time_delta
         )
 
         price = data["ohlc_hour_df"].set_index("psUnix").loc[self.value_date]["Close"]
@@ -112,7 +114,7 @@ class UniswapV3TVCalculator(BaseCalculator):
             fees.append(sum(col_fees))
 
             # Calculate the Imperminant Loss.
-            last_price = staged_data["price_sim"][col][-1]
+            last_price = staged_data["price_sim"][col].iloc[-1]
             x_delta, y_delta = utils.amounts_delta(
                 staged_data["liquidity"],
                 last_price,
@@ -123,7 +125,7 @@ class UniswapV3TVCalculator(BaseCalculator):
             )
 
             # Convert to USD
-            sim_liq = (x_delta + y_delta * last_price) * staged_data["price_usd_sim"][col][-1]
+            sim_liq = (x_delta + y_delta * last_price) * staged_data["price_usd_sim"][col].iloc[-1]
             deposit_amounts_usd.append(sim_liq)
 
         tvs = [fee + imp for imp, fee in zip(deposit_amounts_usd, fees)]

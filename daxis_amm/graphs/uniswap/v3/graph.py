@@ -4,8 +4,6 @@ Module defining the Uniswap V3 Graphs.
 import logging
 
 import pandas as pd
-from gql.transport.aiohttp import AIOHTTPTransport
-from gql.transport.async_transport import AsyncTransport
 
 from daxis_amm.instruments.uniswap_v3 import Pool, Token
 
@@ -13,7 +11,7 @@ from daxis_amm.graphs.base import BaseGraph
 
 
 class UniswapV3Graph(BaseGraph):
-    transporter: AsyncTransport = AIOHTTPTransport(url="https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3")
+    url: str = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
 
     @classmethod
     async def get_static_pool_info(cls, pool_id):

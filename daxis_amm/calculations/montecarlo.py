@@ -2,12 +2,13 @@
 Module defining Montecarlo calculations.
 """
 import numpy as np
+import pandas as pd
 
 from typing import Optional
 
 
 class MonteCarlo:
-    def __init__(self, num_steps: int = 256, num_sims: int = 100000, seed: Optional[int] = None):
+    def __init__(self, num_steps: int = 24, num_sims: int = 10000, seed: Optional[int] = None):
         self.num_steps = num_steps
         self.num_sims = num_sims
         self.seed = seed
@@ -24,4 +25,4 @@ class MonteCarlo:
             w = np.random.standard_normal(self.num_sims)
             simulations[i + 1] = simulations[i] * (1 + r * delta_t + vol * np.sqrt(delta_t) * w)
 
-        return simulations
+        return pd.DataFrame(simulations)
