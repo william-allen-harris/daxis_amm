@@ -1,10 +1,10 @@
 """
 Module defining the Uniswap V3 Token/Pool Class.
 """
-from dataclasses import dataclass
+import dataclasses as _dc
 
 
-@dataclass
+@_dc.dataclass
 class Token:
     "Class representing a Uniswap V3 Token."
     id: str
@@ -14,7 +14,7 @@ class Token:
     total_supply: int
 
 
-@dataclass
+@_dc.dataclass
 class Pool:
     """
     Class representing a Uniswap V3 Pool.
@@ -30,7 +30,3 @@ class Pool:
 
     def __repr__(self):
         return f"Uniswap V3 Pool {self.id}: {self.token_0.symbol}{self.token_1.symbol} {self.fee_tier/10000}%"
-
-    # @property
-    # def std(self):
-    #    return self.OHLC_df.copy().tail(3 * 24)["Close"].std(ddof=0)

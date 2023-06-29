@@ -1,45 +1,55 @@
 """
 Module defining the Uniswap V3 Deposit Amount Calculators.
 """
-from dataclasses import dataclass
-from datetime import datetime
-from daxis_amm.calculations.base import BaseCalculator
-from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph
-from daxis_amm.calculations.uniswap.v3 import utils
+from dataclasses import dataclass as _dataclass
+from datetime import datetime as _dt
+
+from daxis_amm.calculations.base import BaseCalculator as _BaseCalculator
+from daxis_amm.calculations.uniswap.v3 import utils as _utils
+from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph as _UniswapV3Graph
 
 
-@dataclass
-class UniswapV3DepositAmountsCalculator(BaseCalculator):
+@_dataclass
+class UniswapV3DepositAmountsCalculator(_BaseCalculator):
+    """UniswapV3DepositAmountsCalculator is a class for calculating Uniswap V3 deposit amounts.
+
+    :param date: Timestamp of the date to use for calculations
+    :type date: int
+
+    .. note:: The methods of this class include get_data, stage_data, and calculation.
+    """
+
     date: int
 
-    def get_data(self):
+    def get_data(self) -> dict:
+        """Retrieves the necessary data for calculations.
+
+        :return: Dictionary containing all necessary data for calculations
+        :rtype: dict
+        """
 
         start = self.date - (1 * 60 * 60)
 
         funcs = {
-            "token0_hour_usd_price_df": UniswapV3Graph.get_token_hour_data_info(self.position.pool.token_0.id, start, self.date),
-            "token1_hour_usd_price_df": UniswapV3Graph.get_token_hour_data_info(self.position.pool.token_1.id, start, self.date),
-            "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, start, self.date),
-            "pool_dynamic_data": UniswapV3Graph.get_dynamic_pool_info(self.position.pool.id),
+            "token0_hour_usd_price_df": _UniswapV3Graph.get_token_hour_data_info(self.position.pool.token_0.id, start, self.date),
+            "token1_hour_usd_price_df": _UniswapV3Graph.get_token_hour_data_info(self.position.pool.token_1.id, start, self.date),
+            "ohlc_hour_df": _UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, start, self.date),
+            "pool_dynamic_data": _UniswapV3Graph.get_dynamic_pool_info(self.position.pool.id),
         }
 
-        return UniswapV3Graph.run(funcs)
+        return _UniswapV3Graph.run(funcs)
 
-    def stage_data(self, data):
+    def stage_data(self, data: dict) -> dict:
+        """Stages the data for calculation.
 
-        if datetime.now().timestamp() - self.date < 60:
+        :param data: Dictionary containing all necessary data for calculations
+        :type data: dict
+        :return: Dictionary containing staged data for calculations
+        :rtype: dict
+        """
+
+        if _dt.now().timestamp() - self.date < 60:
             raise NotImplementedError
-            # logging.info("Calculating Uniswap V3 Deposit Amount as Latest time.")
-            # if 0.0 in (data["pool_dynamic_data"]["t0derivedETH"], data["pool_dynamic_data"]["t1derivedETH"]):
-            #    raise Exception("Unable to calcualte deposit amounts; One of the Pool derivedETH values are Zero.")
-
-            # price = data["pool_dynamic_data"]["token0Price"]
-            # token_0_lowerprice = price * (1 - self.position.min_percentage)
-            # token_0_upperprice = price * (1 + self.position.max_percentage)
-
-            # usd_x = data["pool_dynamic_data"]["ethPriceUSD"] * data["pool_dynamic_data"]["t0derivedETH"]
-            # usd_y = data["pool_dynamic_data"]["ethPriceUSD"] * data["pool_dynamic_data"]["t1derivedETH"]
-
         else:
             data["token0_hour_usd_price_df"] = data["token0_hour_usd_price_df"].set_index("psUnix")
             data["token1_hour_usd_price_df"] = data["token1_hour_usd_price_df"].set_index("psUnix")
@@ -61,8 +71,17 @@ class UniswapV3DepositAmountsCalculator(BaseCalculator):
             "target_amounts": self.position.amount,
         }
 
-    def calculation(self, staged_data):
-        result = utils.get_deposit_amounts(**staged_data)
+    def calculation(self, staged_data: dict) -> tuple:
+        """Calculates the deposit amounts based on the staged data.
+
+        :param staged_data: Dictionary containing staged data for calculations
+        :type staged_data: dict
+        :return: Tuple containing the calculated deposit amounts
+        :rtype: tuple
+        :raises ValueError: If either of the calculated amounts is below 0.0
+        """
+
+        result = _utils.get_deposit_amounts(**staged_data)
         if result[0] < 0.0 or result[1] < 0.0:
-            raise Exception("Unable to calculate deposit amounts; either amount0 and amount1 is below 0.0")
+            raise ValueError("Unable to calculate deposit amounts; either amount0 and amount1 is below 0.0")
         return result

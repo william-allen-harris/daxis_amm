@@ -1,21 +1,32 @@
 """
 Module defining the Uniswap V3 Graphs.
 """
-import logging
+import logging as _log
 
-import pandas as pd
+import pandas as _pd
 
 from daxis_amm.instruments.uniswap_v3 import Pool, Token
-
 from daxis_amm.graphs.base import BaseGraph
 
 
 class UniswapV3Graph(BaseGraph):
+    """
+    Class defining Uniswap V3 Graphs.
+    """
+
     url: str = "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3"
 
     @classmethod
-    async def get_static_pool_info(cls, pool_id):
-        logging.info(f"Retreiving Pool {pool_id} Static Info for Subgraph")
+    async def get_static_pool_info(cls, pool_id: str):
+        """
+        Get static pool information from the Subgraph.
+
+        :param pool_id: The ID of the pool.
+        :type pool_id: str
+        :return: The static pool information.
+        :rtype: dict
+        """
+        _log.info(f"Retrieving Pool {pool_id} Static Info for Subgraph")
         query = [
             (
                 '{pool(id: "'
@@ -27,8 +38,16 @@ class UniswapV3Graph(BaseGraph):
         return results[0]
 
     @classmethod
-    async def get_dynamic_pool_info(cls, pool_id):
-        logging.info(f"Retreiving Pool {pool_id} Info for Subgraph")
+    async def get_dynamic_pool_info(cls, pool_id: str):
+        """
+        Get dynamic pool information from the Subgraph.
+
+        :param pool_id: The ID of the pool.
+        :type pool_id: str
+        :return: The dynamic pool information.
+        :rtype: dict
+        """
+        _log.info(f"Retrieving Pool {pool_id} Info for Subgraph")
         query = [
             (
                 '{pool(id: "'
@@ -108,8 +127,16 @@ class UniswapV3Graph(BaseGraph):
         }
 
     @classmethod
-    async def get_token_day_data_info(cls, token_id):
-        logging.info(f"Retreiving Token Day Data {token_id} for Subgraph")
+    async def get_token_day_data_info(cls, token_id: str):
+        """
+        Get token day data from the Subgraph.
+
+        :param token_id: The ID of the token.
+        :type token_id: str
+        :return: The token day data.
+        :rtype: pd.DataFrame
+        """
+        _log.info(f"Retrieving Token Day Data {token_id} for Subgraph")
 
         querys = [
             (
@@ -133,11 +160,21 @@ class UniswapV3Graph(BaseGraph):
                 date = poolInfo["token"]["tokenDayData"][i]["date"]
                 tempList = [close, high, low, open, date]
                 ohlc_hour_list.append(tempList)
-        return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "Date"])
+        return _pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "Date"])
 
     @classmethod
     async def get_token_hour_data_info(cls, token_id: str, start_date, end_date):
-        logging.info(f"Retreiving Token Hour Data {token_id} for Subgraph")
+        """
+        Get token hour data from the Subgraph.
+
+        :param token_id: The ID of the token.
+        :type token_id: str
+        :param start_date: The start date for the data.
+        :param end_date: The end date for the data.
+        :return: The token hour data.
+        :rtype: pd.DataFrame
+        """
+        _log.info(f"Retrieving Token Hour Data {token_id} for Subgraph")
 
         querys = [
             (
@@ -165,11 +202,21 @@ class UniswapV3Graph(BaseGraph):
                 periodStartUnix = poolInfo["tokenHourDatas"][i]["periodStartUnix"]
                 tempList = [close, high, low, open, periodStartUnix]
                 ohlc_hour_list.append(tempList)
-        return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "psUnix"]).sort_values("psUnix")
+        return _pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "psUnix"]).sort_values("psUnix")
 
     @classmethod
-    async def get_pool_hour_data_info(cls, pool_id, start_date, end_date):
-        logging.info(f"Retreiving Pool Hour Data {pool_id} for Subgraph")
+    async def get_pool_hour_data_info(cls, pool_id: str, start_date, end_date):
+        """
+        Get pool hour data from the Subgraph.
+
+        :param pool_id: The ID of the pool.
+        :type pool_id: str
+        :param start_date: The start date for the data.
+        :param end_date: The end date for the data.
+        :return: The pool hour data.
+        :rtype: pd.DataFrame
+        """
+        _log.info(f"Retrieving Pool Hour Data {pool_id} for Subgraph")
 
         querys = [
             (
@@ -199,11 +246,21 @@ class UniswapV3Graph(BaseGraph):
                 periodStartUnix = poolInfo["pool"]["poolHourData"][i]["periodStartUnix"]
                 tempList = [close, high, low, open, fees_usd, periodStartUnix]
                 ohlc_hour_list.append(tempList)
-        return pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "feesUSD", "psUnix"]).sort_values("psUnix")
+        return _pd.DataFrame(ohlc_hour_list, columns=["Close", "High", "Low", "Open", "feesUSD", "psUnix"]).sort_values("psUnix")
 
     @classmethod
-    async def get_pool_day_data_info(cls, pool_id, start_date, end_date):
-        logging.info(f"Retreiving Pool Hour Day {pool_id} for Subgraph")
+    async def get_pool_day_data_info(cls, pool_id: str, start_date, end_date):
+        """
+        Get pool day data from the Subgraph.
+
+        :param pool_id: The ID of the pool.
+        :type pool_id: str
+        :param start_date: The start date for the data.
+        :param end_date: The end date for the data.
+        :return: The pool day data.
+        :rtype: pd.DataFrame
+        """
+        _log.info(f"Retrieving Pool Hour Day {pool_id} for Subgraph")
 
         querys = [
             (
@@ -231,11 +288,19 @@ class UniswapV3Graph(BaseGraph):
                 date = float(poolInfo["pool"]["poolDayData"][i]["date"])
                 tempList = [date, fees_usd, volume_token0, volume_token1, volume_usd]
                 ohlc_day_list.append(tempList)
-        return pd.DataFrame(ohlc_day_list, columns=["Date", "FeesUSD", "volumeToken0", "volumeToken1", "volumeUSD"])
+        return _pd.DataFrame(ohlc_day_list, columns=["Date", "FeesUSD", "volumeToken0", "volumeToken1", "volumeUSD"])
 
     @classmethod
-    async def get_pool_ticks_info(cls, pool_id):
-        logging.info(f"Retreiving Pool Tick {pool_id} for Subgraph")
+    async def get_pool_ticks_info(cls, pool_id: str):
+        """
+        Get pool ticks information from the Subgraph.
+
+        :param pool_id: The ID of the pool.
+        :type pool_id: str
+        :return: The pool ticks information.
+        :rtype: pd.DataFrame
+        """
+        _log.info(f"Retrieving Pool Tick {pool_id} for Subgraph")
 
         querys = [
             ('{pool(id: "' + pool_id + '"){ticks(first: 1000, skip: ' + str(skip) + "){tickIdx liquidityNet liquidityGross}}}")
@@ -250,12 +315,20 @@ class UniswapV3Graph(BaseGraph):
                 liqN = float(poolInfo["pool"]["ticks"][i]["liquidityNet"])
                 tickIdx = int(poolInfo["pool"]["ticks"][i]["tickIdx"])
                 ticks_list.append([liqG, liqN, tickIdx])
-        return pd.DataFrame(ticks_list, columns=["liquidityGross", "liquidityNet", "tickIdx"]).sort_values("tickIdx")
+        return _pd.DataFrame(ticks_list, columns=["liquidityGross", "liquidityNet", "tickIdx"]).sort_values("tickIdx")
 
     @classmethod
-    async def get_pool_ticks_day_data_info(cls, pool_id, date):
-        "DOES NOT WORK"
-        logging.info(f"Retreiving Pool Tick Day Data {pool_id} for Subgraph")
+    async def get_pool_ticks_day_data_info(cls, pool_id: str, date):
+        """
+        Get pool tick day data from the Subgraph.
+
+        :param pool_id: The ID of the pool.
+        :type pool_id: str
+        :param date: The date for the data.
+        :return: The pool tick day data.
+        :rtype: pd.DataFrame
+        """
+        _log.info(f"Retrieving Pool Tick Day Data {pool_id} for Subgraph")
 
         querys = [
             "{tickDayDatas(first: 1000, skip: "
@@ -277,12 +350,19 @@ class UniswapV3Graph(BaseGraph):
                 liqN = float(poolInfo["tickDayDatas"][i]["liquidityNet"])
                 tickIdx = int(poolInfo["tickDayDatas"][i]["tick"]["tickIdx"])
                 ticks_list.append([liqG, liqN, tickIdx])
-        return pd.DataFrame(ticks_list, columns=["liquidityGross", "liquidityNet", "tickIdx"]).sort_values("tickIdx")
+        return _pd.DataFrame(ticks_list, columns=["liquidityGross", "liquidityNet", "tickIdx"]).sort_values("tickIdx")
 
 
 def get_pool(pool_id: str) -> Pool:
-    "Build a Pool class from a pool_id."
-    logging.info(f"Building Pool class {pool_id} from Subgraph")
+    """
+    Build a Pool class from a pool_id.
+
+    :param pool_id: The ID of the pool.
+    :type pool_id: str
+    :return: The Pool class.
+    :rtype: Pool
+    """
+    _log.info(f"Building Pool class {pool_id} from Subgraph")
     info = UniswapV3Graph.run({"pool_info": UniswapV3Graph.get_static_pool_info(pool_id)})
 
     fee_tier = int(info["pool_info"]["pool"]["feeTier"])

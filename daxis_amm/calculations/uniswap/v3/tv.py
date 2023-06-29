@@ -1,57 +1,64 @@
 """
 Module defining the Uniswap V3 Theoretical Value Calculators.
 """
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass as _dataclass
+from typing import Any as _Any
 
-import pandas as pd
-from toolz import get_in
+import pandas as _pd
+from toolz import get_in as _get_in
 
-from daxis_amm.calculations.base import BaseCalculator
-from daxis_amm.calculations.uniswap.v3.deposit_amounts import UniswapV3DepositAmountsCalculator
-from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph
-from daxis_amm.calculations.uniswap.v3 import utils
+from daxis_amm.calculations.base import BaseCalculator as _BaseCalculator
+from daxis_amm.calculations.uniswap.v3 import utils as _utils
+from daxis_amm.calculations.uniswap.v3.deposit_amounts import (
+    UniswapV3DepositAmountsCalculator as _UniswapV3DepositAmountsCalculator,
+)
+from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph as _UniswapV3Graph
 
 
-@dataclass
-class UniswapV3TVCalculator(BaseCalculator):
+@_dataclass
+class UniswapV3TVCalculator(_BaseCalculator):
+    """UniswapV3TVCalculator calculates the Theoretical Value of the LP.
+
+    :param start_date: Timestamp of the start date for calculations
+    :type start_date: int
+    :param value_date: Timestamp of the value date for calculations
+    :type value_date: int
+    :param simulator: Simulator used for calculations
+    :type simulator: Any
+    """
+
     start_date: int
     value_date: int
-    simulator: Any
-    """
-    Calculate the Theorical Value of the LP.
-    1. Get Market Data
-        a. OHLC Day Data -> last 5 days from value date
-        b. OHLC Hour Data -> last 5 days from value date
-        c. Token0 OHLC Hour Data -> last 5 days from value date
-        d. Tick Data -> as at Value data
+    simulator: _Any
 
-    2. Calculate Input Values
-        a. Average Fees.
-        b. Ticks Dictionary.
-        c. MonteCarlo simulations from OHLC Hour Data. (periods: value_date - start_date)
-        d. MonteCarlo simulations from Token0 USD Hour Data. (periods: value_date - start_date)
-        e. Liquidity from LP Position.
+    def get_data(self) -> dict:
+        """Retrieves the necessary data for calculations.
 
-    3. Estimate FeesUSD and Deposit Amounts USD as at value date.
-    """
-
-    def get_data(self):
+        :return: Dictionary containing all necessary data for calculations
+        :rtype: dict
+        """
         start_date = self.value_date - (5 * 24 * 60 * 60)
         funcs = {
-            "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, start_date, self.value_date),
-            "ohlc_day_df": UniswapV3Graph.get_pool_day_data_info(self.position.pool.id, start_date, self.value_date),
-            "ticks_df": UniswapV3Graph.get_pool_ticks_info(self.position.pool.id),
-            "token_0_hour_df": UniswapV3Graph.get_token_hour_data_info(
+            "ohlc_hour_df": _UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, start_date, self.value_date),
+            "ohlc_day_df": _UniswapV3Graph.get_pool_day_data_info(self.position.pool.id, start_date, self.value_date),
+            "ticks_df": _UniswapV3Graph.get_pool_ticks_info(self.position.pool.id),
+            "token_0_hour_df": _UniswapV3Graph.get_token_hour_data_info(
                 self.position.pool.token_0.id, start_date, self.value_date
             ),
         }
-        return UniswapV3Graph.run(funcs)
+        return _UniswapV3Graph.run(funcs)
 
-    def stage_data(self, data):
+    def stage_data(self, data: dict) -> dict:
+        """Stages the data for calculation.
+
+        :param data: Dictionary containing all necessary data for calculations
+        :type data: dict
+        :return: Dictionary containing staged data for calculations
+        :rtype: dict
+        """
         average_day_fees = data["ohlc_day_df"]["FeesUSD"].mean()
 
-        ticks = utils.expand_ticks(
+        ticks = _utils.expand_ticks(
             data["ticks_df"],
             self.position.pool.token_0.decimals,
             self.position.pool.token_1.decimals,
@@ -62,18 +69,18 @@ class UniswapV3TVCalculator(BaseCalculator):
         time_delta = int((self.value_date - self.start_date) / (60 * 60 * 24))
 
         price_sim = self.simulator.sim(
-            data["ohlc_hour_df"]["Close"].iloc[-1], 0.0, data["ohlc_hour_df"]["Close"].std()/100, time_delta
+            data["ohlc_hour_df"]["Close"].iloc[-1], 0.0, data["ohlc_hour_df"]["Close"].std() / 100, time_delta
         )
         price_usd_sim = self.simulator.sim(
-            data["token_0_hour_df"]["Close"].iloc[-1], 0.0, data["token_0_hour_df"]["Close"].std()/100, time_delta
+            data["token_0_hour_df"]["Close"].iloc[-1], 0.0, data["token_0_hour_df"]["Close"].std() / 100, time_delta
         )
 
         price = data["ohlc_hour_df"].set_index("psUnix").loc[self.value_date]["Close"]
         token_0_lowerprice = price * (1 - self.position.min_percentage)
         token_0_upperprice = price * (1 + self.position.max_percentage)
 
-        amount0, amount1 = UniswapV3DepositAmountsCalculator(position=self.position, date=self.value_date).run()
-        liquidity = utils.calculate_liquidity(
+        amount0, amount1 = _UniswapV3DepositAmountsCalculator(position=self.position, date=self.value_date).run()
+        liquidity = _utils.calculate_liquidity(
             amount0,
             amount1,
             self.position.pool.token_0.decimals,
@@ -93,18 +100,24 @@ class UniswapV3TVCalculator(BaseCalculator):
             "token_0_upperprice": token_0_upperprice,
         }
 
-    def calculation(self, staged_data):
+    def calculation(self, staged_data: dict) -> pd.DataFrame:
+        """Calculates the theoretical values based on the staged data.
+
+        :param staged_data: Dictionary containing staged data for calculations
+        :type staged_data: dict
+        :return: Dataframe containing the calculated theoretical values
+        :rtype: pd.DataFrame
+        """
         fees = []
         deposit_amounts_usd = []
 
         for col in staged_data["price_sim"]:
-
             # Calculate the Accrued Fees.
             col_fees = []
             for node in staged_data["price_sim"][col]:
-                tick = utils.price_to_tick(node, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
-                closest_tick_spacing = tick - tick % utils.tick_spacing(self.position.pool.fee_tier)
-                tick_liquidity = get_in([closest_tick_spacing, "Liquidity"], staged_data["tick_index"], 0.0)
+                tick = _utils.price_to_tick(node, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
+                closest_tick_spacing = tick - tick % _utils.tick_spacing(self.position.pool.fee_tier)
+                tick_liquidity = _get_in([closest_tick_spacing, "Liquidity"], staged_data["tick_index"], 0.0)
                 average_fee_revenue = (
                     (staged_data["liquidity"] / (tick_liquidity + staged_data["liquidity"]))
                     * staged_data["average_day_fees"]
@@ -115,7 +128,7 @@ class UniswapV3TVCalculator(BaseCalculator):
 
             # Calculate the Imperminant Loss.
             last_price = staged_data["price_sim"][col].iloc[-1]
-            x_delta, y_delta = utils.amounts_delta(
+            x_delta, y_delta = _utils.amounts_delta(
                 staged_data["liquidity"],
                 last_price,
                 staged_data["token_0_lowerprice"],
@@ -130,4 +143,4 @@ class UniswapV3TVCalculator(BaseCalculator):
 
         tvs = [fee + imp for imp, fee in zip(deposit_amounts_usd, fees)]
 
-        return pd.DataFrame({"Fees USD": fees, "Deposit Amounts USD": deposit_amounts_usd, "TV": tvs})
+        return _pd.DataFrame({"Fees USD": fees, "Deposit Amounts USD": deposit_amounts_usd, "TV": tvs})

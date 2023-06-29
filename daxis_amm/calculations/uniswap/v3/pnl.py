@@ -1,34 +1,59 @@
 """
-Module defining the Uniswap V3 Pnl Calculators.
+Module defining the Uniswap V3 PnL Calculators.
 """
-from dataclasses import dataclass
-import pandas as pd
-from daxis_amm.calculations.uniswap.v3.deposit_amounts import UniswapV3DepositAmountsCalculator
+from dataclasses import dataclass as _dataclass
 
-from daxis_amm.enums import Stables
-from daxis_amm.calculations.base import BaseCalculator
-from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph
-from daxis_amm.calculations.uniswap.v3 import utils
+import pandas as _pd
+
+from daxis_amm.calculations.base import BaseCalculator as _BaseCalculator
+from daxis_amm.calculations.uniswap.v3 import utils as _utils
+from daxis_amm.calculations.uniswap.v3.deposit_amounts import (
+    UniswapV3DepositAmountsCalculator as _UniswapV3DepositAmountsCalculator,
+)
+from daxis_amm.enums import Stables as _Stables
+from daxis_amm.graphs.uniswap.v3.graph import UniswapV3Graph as _UniswapV3Graph
 
 
-@dataclass
-class UniswapV3PnLCalculator(BaseCalculator):
+@_dataclass
+class UniswapV3PnLCalculator(_BaseCalculator):
+    """UniswapV3PnLCalculator is a class for calculating Uniswap V3 profit and loss.
+
+    :param start_date: Start timestamp for the calculations
+    :type start_date: int
+
+    :param end_date: End timestamp for the calculations
+    :type end_date: int
+    """
+
     start_date: int
     end_date: int
 
-    def get_data(self):
+    def get_data(self) -> dict:
+        """Retrieves the necessary data for calculations.
+
+        :return: Dictionary containing all necessary data for calculations
+        :rtype: dict
+        """
         funcs = {
-            "token0_hour_usd_price_df": UniswapV3Graph.get_token_hour_data_info(
+            "token0_hour_usd_price_df": _UniswapV3Graph.get_token_hour_data_info(
                 self.position.pool.token_0.id, self.start_date, self.end_date
             ),
-            "ohlc_hour_df": UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, self.start_date, self.end_date),
-            "ohlc_day_df": UniswapV3Graph.get_pool_day_data_info(self.position.pool.id, self.start_date, self.end_date),
-            "ticks_df": UniswapV3Graph.get_pool_ticks_info(self.position.pool.id),
+            "ohlc_hour_df": _UniswapV3Graph.get_pool_hour_data_info(self.position.pool.id, self.start_date, self.end_date),
+            "ohlc_day_df": _UniswapV3Graph.get_pool_day_data_info(self.position.pool.id, self.start_date, self.end_date),
+            "ticks_df": _UniswapV3Graph.get_pool_ticks_info(self.position.pool.id),
         }
 
-        return UniswapV3Graph.run(funcs)
+        return _UniswapV3Graph.run(funcs)
 
-    def stage_data(self, data):
+    def stage_data(self, data: dict) -> dict:
+        """Stages the data for calculation.
+
+        :param data: Dictionary containing all necessary data for calculations
+        :type data: dict
+        :return: Dictionary containing staged data for calculations
+        :rtype: dict
+        :raises Exception: If no OHLC day data or hour data is available
+        """
         data["token0_hour_usd_price_df"] = data["token0_hour_usd_price_df"].set_index("psUnix")
         data["ohlc_hour_df"] = data["ohlc_hour_df"].set_index("psUnix")
         data["ohlc_day_df"] = data["ohlc_day_df"].set_index("Date")
@@ -46,14 +71,14 @@ class UniswapV3PnLCalculator(BaseCalculator):
         last_price = data["ohlc_hour_df"].loc[self.end_date]["Close"]
         usd_x = data["token0_hour_usd_price_df"].loc[self.end_date]["Close"]
 
-        amount0, amount1 = UniswapV3DepositAmountsCalculator(position=self.position, date=self.end_date).run()
+        amount0, amount1 = _UniswapV3DepositAmountsCalculator(position=self.position, date=self.end_date).run()
 
         low = data["ohlc_hour_df"]["Low"].min()
         high = data["ohlc_hour_df"]["High"].max()
 
-        tick_high = utils.price_to_tick(high, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
-        tick_low = utils.price_to_tick(low, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
-        ticks = utils.expand_ticks(
+        tick_high = _utils.price_to_tick(high, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
+        tick_low = _utils.price_to_tick(low, self.position.pool.token_0.decimals, self.position.pool.token_1.decimals)
+        ticks = _utils.expand_ticks(
             data["ticks_df"],
             self.position.pool.token_0.decimals,
             self.position.pool.token_1.decimals,
@@ -62,7 +87,7 @@ class UniswapV3PnLCalculator(BaseCalculator):
         ticks = ticks[(ticks.index <= tick_low) & (ticks.index >= tick_high)]
 
         average_liquidity = ticks.Liquidity.mean()
-        liquidity = utils.calculate_liquidity(
+        liquidity = _utils.calculate_liquidity(
             amount0,
             amount1,
             self.position.pool.token_0.decimals,
@@ -82,16 +107,22 @@ class UniswapV3PnLCalculator(BaseCalculator):
             "token_0_upperprice": token_0_upperprice,
         }
 
-    def calculation(self, staged_data):
-        # Calculate Accured Fees
+    def calculation(self, staged_data: dict) -> _pd.Series:
+        """Calculates the profit and loss based on the staged data.
+
+        :param staged_data: Dictionary containing staged data for calculations
+        :type staged_data: dict
+        :return: Series containing the calculated profit and loss data
+        :rtype: pd.Series
+        """
         accrued_fees = staged_data["total_fees"] * (
             staged_data["liquidity"] / (staged_data["liquidity"] + staged_data["average_liquidity"])
         )
 
-        accrued_fees = 0.0 if pd.isna(accrued_fees) else accrued_fees
+        accrued_fees = 0.0 if _pd.isna(accrued_fees) else accrued_fees
 
         # Calculate Imperminant Loss
-        x_delta, y_delta = utils.amounts_delta(
+        x_delta, y_delta = _utils.amounts_delta(
             staged_data["liquidity"],
             staged_data["last_price"],
             staged_data["token_0_lowerprice"],
@@ -108,6 +139,6 @@ class UniswapV3PnLCalculator(BaseCalculator):
         else:
             sim_liq = (x_delta + y_delta * staged_data["last_price"]) * staged_data["usd_x"]
 
-        return pd.Series(
+        return _pd.Series(
             {"Fees USD": accrued_fees, "Deposit Amounts USD": sim_liq, "PnL": (accrued_fees + sim_liq - self.position.amount)}
         )
